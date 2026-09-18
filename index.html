@@ -82,6 +82,9 @@
     <button class="btn" id="btnStep">⏭ Step</button>
     <button class="btn" id="btnReset">⟲ Reset</button>
     <div class="sep"></div>
+    <button class="btn" id="btnUndo" title="Undo (Ctrl/Cmd+Z)" disabled>↶ Undo</button>
+    <button class="btn" id="btnRedo" title="Redo (Ctrl/Cmd+Shift+Z or Ctrl+Y)" disabled>↷ Redo</button>
+    <div class="sep"></div>
     <button class="btn" id="btnWire">🔗 Wire</button>
     <button class="btn" id="btnRotate">↻ Rotate</button>
     <button class="btn" id="btnCopy" title="Copy selection (Ctrl/Cmd+C) — copies the whole circuit if nothing is selected">📋 Copy</button>
@@ -165,6 +168,49 @@ let simSpeed = 8; // substeps per animation frame
 let freqModeOn = true; // ON: AC sources vary with time at their own Hz, oscilloscope active. OFF: AC sources are frozen static phasors, no Hz, oscilloscope disabled.
 let scopeBuffers = new Map(); // probeId -> array of {t,v}
 const SCOPE_WINDOW = 2.0; // seconds visible
+
+/* ============================== UNDO / REDO ============================== */
+let historyStack = []; // past snapshots (JSON strings), most recent last
+let redoStack = [];    // snapshots undone, most recent last
+const HISTORY_LIMIT = 80;
+let dragHistorySnapshot = null; // snapshot captured at the start of a drag, committed on mouseup only if something actually moved
+function snapshotCircuit(){
+  return JSON.stringify({ components: components.map(c=>({...c, lastSim:undefined})), wires });
+}
+function pushHistory(){
+  historyStack.push(snapshotCircuit());
+  if(historyStack.length>HISTORY_LIMIT) historyStack.shift();
+  redoStack.length = 0;
+  updateUndoRedoButtons();
+}
+function restoreCircuitSnapshot(json){
+  const data = JSON.parse(json);
+  components = data.components.map(c=>{ if(!c.state) c.state={}; if(!c.props) c.props={}; return c; });
+  wires = data.wires;
+  nextId = 1 + Math.max(0, ...components.map(c=>c.id), ...wires.map(w=>w.id));
+  selected = null; multiSelected = []; multiSelectedWires = []; marquee = null; groupDrag = null; wireDraft = null;
+  pruneScopeBuffers();
+  refreshRightPanel();
+}
+function undo(){
+  if(!historyStack.length) return;
+  redoStack.push(snapshotCircuit());
+  if(redoStack.length>HISTORY_LIMIT) redoStack.shift();
+  restoreCircuitSnapshot(historyStack.pop());
+  updateUndoRedoButtons();
+}
+function redo(){
+  if(!redoStack.length) return;
+  historyStack.push(snapshotCircuit());
+  if(historyStack.length>HISTORY_LIMIT) historyStack.shift();
+  restoreCircuitSnapshot(redoStack.pop());
+  updateUndoRedoButtons();
+}
+function updateUndoRedoButtons(){
+  const ub = document.getElementById('btnUndo'), rb = document.getElementById('btnRedo');
+  if(ub) ub.disabled = historyStack.length===0;
+  if(rb) rb.disabled = redoStack.length===0;
+}
 
 /* ============================== GEOMETRY HELPERS ============================== */
 function rotPt(p, rot){ let x=p.x, y=p.y; for(let i=0;i<((rot%4)+4)%4;i++){ const nx=-y, ny=x; x=nx; y=ny; } return {x,y}; }
@@ -828,6 +874,7 @@ canvas.addEventListener('mousedown', e=>{
     const snapped = commitWireSnap(g.x, g.y);
     if(!wireDraft){ wireDraft = {start:snapped, cur:snapped}; }
     else {
+      pushHistory();
       const pts = manhattan(wireDraft.start, snapped);
       wires.push({id:nextId++, pts});
       wireDraft = null;
@@ -836,9 +883,9 @@ canvas.addEventListener('mousedown', e=>{
   }
   if(mode==='delete'){
     const c = hitComponent(g.x,g.y);
-    if(c){ components = components.filter(x=>x!==c); selected=null; multiSelected=multiSelected.filter(x=>x!==c); pruneScopeBuffers(); refreshRightPanel(); return; }
+    if(c){ pushHistory(); components = components.filter(x=>x!==c); selected=null; multiSelected=multiSelected.filter(x=>x!==c); pruneScopeBuffers(); refreshRightPanel(); return; }
     const w = hitWire(g.x,g.y);
-    if(w){ wires = wires.filter(x=>x!==w); selected=null; multiSelectedWires=multiSelectedWires.filter(x=>x!==w); refreshRightPanel(); return; }
+    if(w){ pushHistory(); wires = wires.filter(x=>x!==w); selected=null; multiSelectedWires=multiSelectedWires.filter(x=>x!==w); refreshRightPanel(); return; }
     return;
   }
   // select mode
@@ -847,6 +894,7 @@ canvas.addEventListener('mousedown', e=>{
   if(c){
     if(groupSize>1 && multiSelected.includes(c)){
       // start a group drag of the whole rectangle-selection (components + wires together)
+      dragHistorySnapshot = snapshotCircuit();
       groupDrag = {
         startGX:g.x, startGY:g.y,
         items: multiSelected.map(mc=>({c:mc, gx:mc.gx, gy:mc.gy})),
@@ -859,6 +907,7 @@ canvas.addEventListener('mousedown', e=>{
     if(c.type==='fuse' && c.state.blown){ /* click does nothing, must reset via panel */ }
     multiSelected = []; multiSelectedWires = [];
     selected = {kind:'comp', obj:c};
+    dragHistorySnapshot = snapshotCircuit();
     dragComp = c; dragOffset = {x:g.x-c.gx, y:g.y-c.gy};
     refreshRightPanel();
     return;
@@ -867,6 +916,7 @@ canvas.addEventListener('mousedown', e=>{
     const w = hitWire(g.x,g.y);
     if(w){
       if(groupSize>1 && multiSelectedWires.includes(w)){
+        dragHistorySnapshot = snapshotCircuit();
         groupDrag = {
           startGX:g.x, startGY:g.y,
           items: multiSelected.map(mc=>({c:mc, gx:mc.gx, gy:mc.gy})),
@@ -909,6 +959,16 @@ canvas.addEventListener('mousemove', e=>{
   if(dragComp){ dragComp.gx = Math.round(g.x-dragOffset.x); dragComp.gy = Math.round(g.y-dragOffset.y); }
 });
 window.addEventListener('mouseup', ()=>{
+  if((dragComp || groupDrag) && dragHistorySnapshot!==null){
+    // only commit an undo step if the drag actually moved something (avoids no-op history entries from a plain click)
+    if(dragHistorySnapshot !== snapshotCircuit()){
+      historyStack.push(dragHistorySnapshot);
+      if(historyStack.length>HISTORY_LIMIT) historyStack.shift();
+      redoStack.length = 0;
+      updateUndoRedoButtons();
+    }
+  }
+  dragHistorySnapshot = null;
   dragComp=null;
   groupDrag=null;
   if(panDrag){
@@ -979,6 +1039,7 @@ function copySelection(){
 }
 function pasteClipboard(){
   if(!clipboard || (!clipboard.comps.length && !clipboard.wires.length)) return;
+  pushHistory();
   pasteCount++;
   const dx = 2*pasteCount, dy = 2*pasteCount; // cascade so successive pastes step diagonally away from the original
   const newComps = clipboard.comps.map(c=>{
@@ -999,6 +1060,9 @@ window.addEventListener('keydown', e=>{
   const mod = e.ctrlKey || e.metaKey;
   const tag = (document.activeElement && document.activeElement.tagName) || '';
   const typing = tag==='INPUT' || tag==='SELECT' || tag==='TEXTAREA';
+  if(!typing && mod && e.key.toLowerCase()==='z' && e.shiftKey){ e.preventDefault(); redo(); return; }
+  if(!typing && mod && e.key.toLowerCase()==='z'){ e.preventDefault(); undo(); return; }
+  if(!typing && mod && e.key.toLowerCase()==='y'){ e.preventDefault(); redo(); return; }
   if(!typing && mod && e.key.toLowerCase()==='c'){ e.preventDefault(); copySelection(); return; }
   if(!typing && mod && e.key.toLowerCase()==='v'){ e.preventDefault(); pasteClipboard(); return; }
   if(!typing && mod && e.key.toLowerCase()==='d'){ e.preventDefault(); copySelection(); pasteClipboard(); return; }
@@ -1008,32 +1072,36 @@ window.addEventListener('keydown', e=>{
   if(e.key==='Escape'){ wireDraft=null; marquee=null; multiSelected=[]; multiSelectedWires=[]; setMode('select'); refreshRightPanel(); }
   if((e.key==='Delete'||e.key==='Backspace') && !typing){
     if(multiSelected.length || multiSelectedWires.length){
+      pushHistory();
       const set = new Set(multiSelected), wset = new Set(multiSelectedWires);
       components = components.filter(x=>!set.has(x));
       wires = wires.filter(x=>!wset.has(x));
       multiSelected=[]; multiSelectedWires=[]; selected=null; pruneScopeBuffers(); refreshRightPanel();
     } else if(selected){
+      pushHistory();
       if(selected.kind==='comp'){ components = components.filter(x=>x!==selected.obj); pruneScopeBuffers(); }
       else wires = wires.filter(x=>x!==selected.obj);
       selected=null; refreshRightPanel();
     }
   }
   if(e.key.toLowerCase()==='r' && !mod && !typing){
-    if(multiSelected.length){ multiSelected.forEach(c=>c.rot=(c.rot+1)%4); }
-    else if(selected && selected.kind==='comp'){ selected.obj.rot = (selected.obj.rot+1)%4; }
+    if(multiSelected.length){ pushHistory(); multiSelected.forEach(c=>c.rot=(c.rot+1)%4); }
+    else if(selected && selected.kind==='comp'){ pushHistory(); selected.obj.rot = (selected.obj.rot+1)%4; }
   }
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key) && !typing){
     const d = {ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0}}[e.key];
     if(multiSelected.length || multiSelectedWires.length){
       e.preventDefault();
+      pushHistory();
       multiSelected.forEach(c=>{ c.gx+=d.x; c.gy+=d.y; });
       multiSelectedWires.forEach(w=>{ w.pts = w.pts.map(p=>({x:p.x+d.x, y:p.y+d.y})); });
     }
-    else if(selected && selected.kind==='comp'){ e.preventDefault(); selected.obj.gx+=d.x; selected.obj.gy+=d.y; }
+    else if(selected && selected.kind==='comp'){ e.preventDefault(); pushHistory(); selected.obj.gx+=d.x; selected.obj.gy+=d.y; }
   }
 });
 
 function addComponent(type, gx, gy){
+  pushHistory();
   const def = DEFS[type];
   const c = { id: nextId++, type, gx, gy, rot:0, props: Object.assign({}, def.defaults), state: Object.assign({}, def.initState||{}) };
   components.push(c);
@@ -1054,11 +1122,13 @@ document.getElementById('btnWire').onclick = ()=> setMode(mode==='wire'?'select'
 document.getElementById('btnDelete').onclick = ()=> setMode(mode==='delete'?'select':'delete');
 document.getElementById('btnPan').onclick = ()=> setMode(mode==='pan'?'select':'pan');
 document.getElementById('btnRotate').onclick = ()=>{
-  if(multiSelected.length) multiSelected.forEach(c=>c.rot=(c.rot+1)%4);
-  else if(selected && selected.kind==='comp') selected.obj.rot=(selected.obj.rot+1)%4;
+  if(multiSelected.length){ pushHistory(); multiSelected.forEach(c=>c.rot=(c.rot+1)%4); }
+  else if(selected && selected.kind==='comp'){ pushHistory(); selected.obj.rot=(selected.obj.rot+1)%4; }
 };
 document.getElementById('btnCopy').onclick = ()=> copySelection();
 document.getElementById('btnPaste').onclick = ()=> pasteClipboard();
+document.getElementById('btnUndo').onclick = ()=> undo();
+document.getElementById('btnRedo').onclick = ()=> redo();
 function setZoom(newScale, cx, cy){
   newScale = Math.min(3, Math.max(0.25, newScale));
   const wx = (cx-view.offX)/view.scale, wy = (cy-view.offY)/view.scale;
@@ -1076,7 +1146,7 @@ canvas.addEventListener('wheel', e=>{
 document.getElementById('btnZoomIn').onclick = ()=>{ const r=canvas.getBoundingClientRect(); setZoom(view.scale*1.25, r.width/2, r.height/2); };
 document.getElementById('btnZoomOut').onclick = ()=>{ const r=canvas.getBoundingClientRect(); setZoom(view.scale/1.25, r.width/2, r.height/2); };
 document.getElementById('btnZoomReset').onclick = ()=>{ view.scale=1; view.offX=0; view.offY=0; document.getElementById('zoomDisp').textContent='100%'; };
-document.getElementById('btnClear').onclick = ()=>{ if(confirm('Clear the entire circuit?')){ components=[]; wires=[]; selected=null; simTime=0; scopeBuffers.clear(); running=false; const rb=document.getElementById('btnRun'); rb.textContent='▶ Run'; rb.classList.remove('active'); refreshRightPanel(); refreshReadouts(); drawScope(); } };
+document.getElementById('btnClear').onclick = ()=>{ if(confirm('Clear the entire circuit?')){ pushHistory(); components=[]; wires=[]; selected=null; simTime=0; scopeBuffers.clear(); running=false; const rb=document.getElementById('btnRun'); rb.textContent='▶ Run'; rb.classList.remove('active'); refreshRightPanel(); refreshReadouts(); drawScope(); } };
 document.getElementById('btnReset').onclick = ()=>{ resetSim(); };
 document.getElementById('btnStep').onclick = ()=>{ if(!running) simSubstep(); };
 document.getElementById('btnRun').onclick = ()=>{ running=!running; document.getElementById('btnRun').textContent = running? '⏸ Pause':'▶ Run'; document.getElementById('btnRun').classList.toggle('active',running); };
@@ -1173,7 +1243,7 @@ document.getElementById('btnImport').onclick = ()=> document.getElementById('fil
 document.getElementById('fileInput').onchange = e=>{
   const f = e.target.files[0]; if(!f) return;
   const r = new FileReader();
-  r.onload = ()=>{ try{ const data = JSON.parse(r.result); components = data.components||[]; wires = data.wires||[];
+  r.onload = ()=>{ try{ const data = JSON.parse(r.result); pushHistory(); components = data.components||[]; wires = data.wires||[];
     nextId = 1+Math.max(0,...components.map(c=>c.id),...wires.map(w=>w.id));
     selected=null; refreshRightPanel(); }catch(err){ alert('Invalid file: '+err.message); } };
   r.readAsText(f);
@@ -1552,7 +1622,12 @@ function refreshRightPanel(){
   rows += `<div class="prop-row"><label>Rotation</label><button class="btn" id="rotBtn">↻ ${c.rot*90}°</button></div>`;
   panel.innerHTML = rows;
   panel.querySelectorAll('input,select').forEach(inp=>{
+    let historyPushedThisEdit = false;
+    const armHistory = ()=>{ if(!historyPushedThisEdit){ pushHistory(); historyPushedThisEdit = true; } };
+    inp.addEventListener('focus', armHistory);
+    inp.addEventListener('mousedown', armHistory); // covers range sliders / selects that can change without a prior focus event
     inp.addEventListener('input', ()=>{
+      armHistory(); // safety net if input changed programmatically without focus/mousedown firing first
       const k = inp.dataset.k;
       if(isSourceType && k==='mode'){ c.props.mode = inp.value; refreshRightPanel(); return; }
       if(isSourceType && c.props.mode==='AC' && (k==='re' || k==='im')){
@@ -1568,8 +1643,8 @@ function refreshRightPanel(){
       c.props[k]=v;
     });
   });
-  const rb = document.getElementById('rotBtn'); if(rb) rb.onclick=()=>{ c.rot=(c.rot+1)%4; refreshRightPanel(); };
-  const fb = document.getElementById('fuseReset'); if(fb) fb.onclick=()=>{ c.state.blown=false; refreshRightPanel(); };
+  const rb = document.getElementById('rotBtn'); if(rb) rb.onclick=()=>{ pushHistory(); c.rot=(c.rot+1)%4; refreshRightPanel(); };
+  const fb = document.getElementById('fuseReset'); if(fb) fb.onclick=()=>{ pushHistory(); c.state.blown=false; refreshRightPanel(); };
 }
 
 /* ============================== INIT ============================== */
@@ -1600,6 +1675,8 @@ function resizeCanvasToWrap(){
   wires.push({id:nextId++, pts:manhattan({x:10,y:3},{x:10,y:6})});  // voltmeter(-) -> resistor(a) node
   wires.push({id:nextId++, pts:manhattan({x:12,y:3},{x:12,y:6})});  // voltmeter(+) -> resistor(b) node
   selected=null; refreshRightPanel();
+  // the starter demo itself shouldn't be sitting in the undo history — start the user with a clean slate
+  historyStack = []; redoStack = []; updateUndoRedoButtons();
 })();
 render();
 tick();
