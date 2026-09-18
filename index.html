@@ -397,6 +397,67 @@ const DEFS = {
       gateOutDot(ctx,3,1,sim);
       dot(ctx,0,1); dot(ctx,3,1);
     }
+  },
+  textlabel: {
+    label:'Text Label', cat:'Annotations', pins:[],
+    bbox:{x0:-0.1,y0:-0.35,x1:2.2,y1:0.35}, defaults:{text:'Label'},
+    draw(ctx,c){
+      // plain text is the one label type that actually rotates with the component —
+      // arrow and +text− labels deliberately keep their caption upright instead (see those draw() fns).
+      bigLabel(ctx, c.props.text||'Label', 0, 0, ctx.strokeStyle, 'left');
+    }
+  },
+  arrowlabel: {
+    label:'Arrow + Label', cat:'Annotations', pins:[],
+    bbox:{x0:-0.7,y0:-0.9,x1:3.2,y1:0.9}, defaults:{text:'Note'},
+    draw(ctx,c){
+      const rot = ((c.rot%4)+4)%4;
+      const shaftLen = 1.1;
+      // arrow shaft + head — small, and this rotates normally with the component
+      ctx.beginPath(); mv(ctx,0,0); lt(ctx,shaftLen,0); ctx.stroke();
+      ctx.beginPath(); mv(ctx,shaftLen,0); lt(ctx,shaftLen-0.28,-0.14); mv(ctx,shaftLen,0); lt(ctx,shaftLen-0.28,0.14); ctx.stroke();
+      // text stays upright regardless of rotation: above the arrow when horizontal, beside it when vertical
+      const horizontal = (rot===0||rot===2);
+      const screenMid = rotPt({x:shaftLen/2,y:0}, rot);
+      const screenOffset = horizontal ? {x:0,y:-0.32} : {x:0.28,y:0};
+      const screenAnchor = {x:screenMid.x+screenOffset.x, y:screenMid.y+screenOffset.y};
+      const localAnchor = rotPt(screenAnchor, invRot(rot));
+      ctx.save();
+      ctx.translate(localAnchor.x*GRID, localAnchor.y*GRID);
+      ctx.rotate(-rot*Math.PI/2);
+      bigLabel(ctx, c.props.text||'Note', 0, 0, ctx.strokeStyle, horizontal?'center':'left');
+      ctx.restore();
+    }
+  },
+  pmlabel: {
+    label:'± Label (+text−)', cat:'Annotations', pins:[],
+    bbox:{x0:-0.3,y0:-0.45,x1:5,y1:0.45}, defaults:{text:'V1'},
+    draw(ctx,c){
+      // rotatable like the arrow label: the +/text/− GROUP reorients (side-by-side when horizontal,
+      // stacked when vertical), but each glyph itself is drawn upright and never rotates.
+      const rot = ((c.rot%4)+4)%4;
+      const txt = c.props.text || 'V1';
+      const col = ctx.strokeStyle;
+      const horizontal = (rot===0||rot===2);
+      function put(str, sx, sy, color, align){
+        const local = rotPt({x:sx,y:sy}, invRot(rot));
+        ctx.save();
+        ctx.translate(local.x*GRID, local.y*GRID);
+        ctx.rotate(-rot*Math.PI/2);
+        bigLabel(ctx, str, 0, 0, color, align);
+        ctx.restore();
+      }
+      if(horizontal){
+        let x = 0;
+        put('+', x, 0, '#ff8a8a', 'left'); x += textWidthGrid(ctx, '+ ');
+        put(txt, x, 0, col, 'left'); x += textWidthGrid(ctx, txt+' ');
+        put('−', x, 0, '#7ab8ff', 'left');
+      } else {
+        put('+', 0, -0.4, '#ff8a8a', 'center');
+        put(txt, 0, 0, col, 'center');
+        put('−', 0, 0.4, '#7ab8ff', 'center');
+      }
+    }
   }
 };
 function fmtR(v){ if(v>=1e6) return (v/1e6).toFixed(2)+'MΩ'; if(v>=1e3) return (v/1e3).toFixed(2)+'kΩ'; return v.toFixed(0)+'Ω'; }
@@ -413,6 +474,41 @@ function dot(ctx,x,y){ ctx.fillStyle='#4da3ff'; ctx.beginPath(); ctx.arc(x*GRID,
 function label(ctx,txt,x,y,col,align){ ctx.fillStyle=col||'#e7ecf7'; ctx.font='10px monospace'; ctx.textAlign=align||'center'; ctx.fillText(txt, x*GRID, y*GRID); ctx.textAlign='left'; }
 function textC(ctx,txt,x,y){ ctx.fillStyle='#8b97b8'; ctx.font='10px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,x*GRID,y*GRID); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
 function miniSign(ctx,x,y,ch){ ctx.fillStyle = ch==='+' ? '#ff8a8a' : '#7ab8ff'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ch,x*GRID,y*GRID); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
+function bigLabel(ctx,txt,x,y,col,align){ ctx.fillStyle=col||'#e7ecf7'; ctx.font='13px sans-serif'; ctx.textAlign=align||'left'; ctx.textBaseline='middle'; ctx.fillText(txt,x*GRID,y*GRID); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
+function textWidthGrid(ctx,txt,font){ ctx.font = font||'13px sans-serif'; return ctx.measureText(txt).width/GRID; }
+// Annotation bboxes (selection outline, hit-test, drag ghost) are sized to the ACTUAL text content
+// instead of a fixed worst-case box, so short labels don't get an oversized highlight/hit area.
+const _measureCtx = document.createElement('canvas').getContext('2d');
+function getBBox(c){
+  const def = DEFS[c.type];
+  if(c.type==='textlabel'){
+    _measureCtx.font='13px sans-serif';
+    const w = _measureCtx.measureText(c.props.text||'Label').width/GRID;
+    return {x0:-0.1, y0:-0.35, x1:w+0.1, y1:0.35};
+  }
+  if(c.type==='arrowlabel'){
+    _measureCtx.font='13px sans-serif';
+    const shaftLen = 1.1;
+    const rot = ((c.rot%4)+4)%4;
+    const horizontal = (rot===0||rot===2);
+    const w = _measureCtx.measureText(c.props.text||'Note').width/GRID;
+    if(horizontal) return {x0:-0.1, y0:-0.6, x1:Math.max(shaftLen, w)+0.1, y1:0.2};
+    return {x0:-0.1, y0:-0.2, x1:Math.max(shaftLen, 0.28+w)+0.1, y1:0.2};
+  }
+  if(c.type==='pmlabel'){
+    _measureCtx.font='13px sans-serif';
+    const rot = ((c.rot%4)+4)%4;
+    const horizontal = (rot===0||rot===2);
+    const txt = c.props.text||'V1';
+    if(horizontal){
+      const w = _measureCtx.measureText('+ '+txt+' −').width/GRID;
+      return {x0:-0.1, y0:-0.35, x1:w+0.1, y1:0.35};
+    }
+    const w = Math.max(_measureCtx.measureText('+').width, _measureCtx.measureText(txt).width, _measureCtx.measureText('−').width)/GRID;
+    return {x0:-w/2-0.1, y0:-0.6, x1:w/2+0.1, y1:0.6};
+  }
+  return def.bbox;
+}
 function gateOutDot(ctx,x,y,sim){ if(!sim) return; ctx.fillStyle = sim.hi? '#3ddc97':'#3a4568'; ctx.beginPath(); ctx.arc(x*GRID+8,y*GRID,4,0,Math.PI*2); ctx.fill(); }
 // shared source-symbol pieces: same circle glyph for DC and AC of each kind (voltage vs current) —
 // AC differs only in its value (phasor) and frequency, never in the icon.
@@ -437,7 +533,7 @@ function fmtPhasor(amp, phaseDeg, form, unit){
 }
 
 /* ============================== PALETTE UI ============================== */
-const CATS = ['Sources','Passive','Semiconductors','Switches','Meters','Logic'];
+const CATS = ['Sources','Passive','Semiconductors','Switches','Meters','Logic','Annotations'];
 function buildPalette(){
   const pal = document.getElementById('palette');
   pal.innerHTML='';
@@ -471,7 +567,10 @@ const ICONS = {
   ammeter: svgWrap(`<line x1="1" y1="9" x2="7" y2="9"/><circle cx="13" cy="9" r="6"/><text x="13" y="12" font-size="8" font-family="serif" text-anchor="middle" fill="currentColor" stroke="none">A</text><line x1="19" y1="9" x2="25" y2="9"/><text x="4" y="5" font-size="6" text-anchor="middle" fill="currentColor" stroke="none">+</text><text x="22" y="6" font-size="7" text-anchor="middle" fill="currentColor" stroke="none">−</text>`),
   and: svgWrap(`<path d="M2 2 L11 2 A7 7 0 0 1 11 16 L2 16 Z"/><line x1="0" y1="5" x2="2" y2="5"/><line x1="0" y1="13" x2="2" y2="13"/><line x1="18" y1="9" x2="25" y2="9"/>`),
   or: svgWrap(`<path d="M2 2 Q9 2 12 9 Q9 16 2 16 Q5 9 2 2 Z"/><line x1="1.5" y1="5" x2="3.5" y2="5.3"/><line x1="1.5" y1="13" x2="3.5" y2="12.7"/><line x1="18" y1="9" x2="25" y2="9"/>`),
-  not: svgWrap(`<path d="M2 2 L2 16 L15 9 Z"/><circle cx="17.5" cy="9" r="2"/><line x1="0" y1="9" x2="2" y2="9"/><line x1="19.5" y1="9" x2="25" y2="9"/>`)
+  not: svgWrap(`<path d="M2 2 L2 16 L15 9 Z"/><circle cx="17.5" cy="9" r="2"/><line x1="0" y1="9" x2="2" y2="9"/><line x1="19.5" y1="9" x2="25" y2="9"/>`),
+  textlabel: svgWrap(`<text x="13" y="13" font-size="13" text-anchor="middle" font-family="serif" fill="currentColor" stroke="none">T</text>`),
+  arrowlabel: svgWrap(`<line x1="1" y1="9" x2="17" y2="9"/><path d="M13 5 L19 9 L13 13 Z" fill="currentColor" stroke="none"/><text x="10" y="6" font-size="6" text-anchor="middle" fill="currentColor" stroke="none">txt</text>`),
+  pmlabel: svgWrap(`<text x="2" y="12" font-size="10" fill="currentColor" stroke="none">+</text><text x="13" y="12" font-size="8" text-anchor="middle" font-family="serif" fill="currentColor" stroke="none">T</text><text x="24" y="13" font-size="13" text-anchor="end" fill="currentColor" stroke="none">−</text>`)
 };
 function iconFor(k){ return ICONS[k] || svgWrap(`<rect x="4" y="4" width="18" height="10"/>`); }
 
@@ -527,16 +626,17 @@ function render(){
     if(selected && selected.kind==='comp' && selected.obj===c){
       ctx.save(); ctx.translate(c.gx*GRID,c.gy*GRID); ctx.rotate(c.rot*Math.PI/2);
       ctx.strokeStyle='#4da3ff55'; ctx.setLineDash([3,3]);
-      ctx.strokeRect(def.bbox.x0*GRID, def.bbox.y0*GRID, (def.bbox.x1-def.bbox.x0)*GRID, (def.bbox.y1-def.bbox.y0)*GRID);
+      const bb1 = getBBox(c);
+      ctx.strokeRect(bb1.x0*GRID, bb1.y0*GRID, (bb1.x1-bb1.x0)*GRID, (bb1.y1-bb1.y0)*GRID);
       ctx.setLineDash([]); ctx.restore();
     }
   });
   // multi-selection highlight (rectangle-marquee selection)
   multiSelected.forEach(c=>{
-    const def = DEFS[c.type];
     ctx.save(); ctx.translate(c.gx*GRID,c.gy*GRID); ctx.rotate(c.rot*Math.PI/2);
     ctx.strokeStyle='#3ddc97aa'; ctx.setLineDash([3,3]); ctx.lineWidth=1.5;
-    ctx.strokeRect(def.bbox.x0*GRID, def.bbox.y0*GRID, (def.bbox.x1-def.bbox.x0)*GRID, (def.bbox.y1-def.bbox.y0)*GRID);
+    const bb2 = getBBox(c);
+    ctx.strokeRect(bb2.x0*GRID, bb2.y0*GRID, (bb2.x1-bb2.x0)*GRID, (bb2.y1-bb2.y0)*GRID);
     ctx.setLineDash([]); ctx.restore();
   });
   ctx.restore();
@@ -577,9 +677,10 @@ function findPinNear(gx,gy,thresh=0.4){
 }
 function hitComponent(gx,gy){
   for(let i=components.length-1;i>=0;i--){
-    const c = components[i]; const def = DEFS[c.type];
+    const c = components[i];
     const local = rotPt({x:gx-c.gx, y:gy-c.gy}, invRot(c.rot));
-    if(local.x>=def.bbox.x0 && local.x<=def.bbox.x1 && local.y>=def.bbox.y0 && local.y<=def.bbox.y1) return c;
+    const bb = getBBox(c);
+    if(local.x>=bb.x0 && local.x<=bb.x1 && local.y>=bb.y0 && local.y<=bb.y1) return c;
   }
   return null;
 }
@@ -666,7 +767,7 @@ function commitWireSnap(gx,gy){
 function boardIconCanvas(type){
   const def = DEFS[type];
   const comp = { id:0, type, gx:0, gy:0, rot:0, props: Object.assign({}, def.defaults), state: Object.assign({}, def.initState||{}) };
-  const b = def.bbox;
+  const b = getBBox(comp);
   const offX = -b.x0*GRID, offY = -b.y0*GRID; // pixel offset of local (0,0) — the point that snaps under the cursor on drop
   const cv = document.createElement('canvas');
   cv.width = Math.max(1, Math.round((b.x1-b.x0)*GRID));
@@ -822,8 +923,8 @@ window.addEventListener('mouseup', ()=>{
       const gx0 = (xA-view.offX)/(GRID*view.scale), gx1 = (xB-view.offX)/(GRID*view.scale);
       const gy0 = (yA-view.offY)/(GRID*view.scale), gy1 = (yB-view.offY)/(GRID*view.scale);
       const hits = components.filter(c=>{
-        const def = DEFS[c.type];
-        const corners=[{x:def.bbox.x0,y:def.bbox.y0},{x:def.bbox.x1,y:def.bbox.y0},{x:def.bbox.x1,y:def.bbox.y1},{x:def.bbox.x0,y:def.bbox.y1}];
+        const bb = getBBox(c);
+        const corners=[{x:bb.x0,y:bb.y0},{x:bb.x1,y:bb.y0},{x:bb.x1,y:bb.y1},{x:bb.x0,y:bb.y1}];
         let cminx=Infinity,cmaxx=-Infinity,cminy=Infinity,cmaxy=-Infinity;
         corners.forEach(pt=>{ const rp=rotPt(pt,c.rot); const ax=c.gx+rp.x, ay=c.gy+rp.y; if(ax<cminx)cminx=ax; if(ax>cmaxx)cmaxx=ax; if(ay<cminy)cminy=ay; if(ay>cmaxy)cmaxy=ay; });
         return cmaxx>=gx0 && cminx<=gx1 && cmaxy>=gy0 && cminy<=gy1;
@@ -905,7 +1006,7 @@ window.addEventListener('keydown', e=>{
     e.preventDefault(); multiSelected = components.slice(); multiSelectedWires = wires.slice(); selected=null; refreshRightPanel(); return;
   }
   if(e.key==='Escape'){ wireDraft=null; marquee=null; multiSelected=[]; multiSelectedWires=[]; setMode('select'); refreshRightPanel(); }
-  if(e.key==='Delete'||e.key==='Backspace'){
+  if((e.key==='Delete'||e.key==='Backspace') && !typing){
     if(multiSelected.length || multiSelectedWires.length){
       const set = new Set(multiSelected), wset = new Set(multiSelectedWires);
       components = components.filter(x=>!set.has(x));
@@ -917,7 +1018,7 @@ window.addEventListener('keydown', e=>{
       selected=null; refreshRightPanel();
     }
   }
-  if(e.key.toLowerCase()==='r' && !mod){
+  if(e.key.toLowerCase()==='r' && !mod && !typing){
     if(multiSelected.length){ multiSelected.forEach(c=>c.rot=(c.rot+1)%4); }
     else if(selected && selected.kind==='comp'){ selected.obj.rot = (selected.obj.rot+1)%4; }
   }
@@ -1005,10 +1106,10 @@ function exportPNG(){
   if(components.length===0 && wires.length===0){ alert('Nothing to export — the canvas is empty.'); return; }
   let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
   components.forEach(c=>{
-    const def = DEFS[c.type];
+    const bb = getBBox(c);
     const corners = [
-      {x:def.bbox.x0,y:def.bbox.y0}, {x:def.bbox.x1,y:def.bbox.y0},
-      {x:def.bbox.x1,y:def.bbox.y1}, {x:def.bbox.x0,y:def.bbox.y1}
+      {x:bb.x0,y:bb.y0}, {x:bb.x1,y:bb.y0},
+      {x:bb.x1,y:bb.y1}, {x:bb.x0,y:bb.y1}
     ];
     corners.forEach(pt=>{
       const rp = rotPt(pt, c.rot);
@@ -1400,7 +1501,7 @@ function refreshRightPanel(){
   let rows = `<div class="prop-row"><label>Type</label><b>${def.label}</b></div>`;
   const fieldDefs = {
     resistance:['Resistance (Ω)','number'], capacitance:['Capacitance (µF)','number'], inductance:['Inductance (mH)','number'],
-    rated:['Rated current (A)','number'], color:['Color','select-color'], wiper:['Wiper','range']
+    rated:['Rated current (A)','number'], color:['Color','select-color'], wiper:['Wiper','range'], text:['Label text','text']
   };
   const isSourceType = (c.type==='vsource' || c.type==='isource');
   if(isSourceType){
@@ -1440,6 +1541,8 @@ function refreshRightPanel(){
         rows += `<div class="prop-row"><label>${fd[0]}</label><select data-k="${k}">${['red','green','blue','yellow','white'].map(o=>`<option ${c.props[k]===o?'selected':''}>${o}</option>`).join('')}</select></div>`;
       } else if(fd[1]==='range'){
         rows += `<div class="prop-row"><label>${fd[0]}</label><input type="range" min="0" max="1" step="0.01" value="${c.props[k]}" data-k="${k}"></div>`;
+      } else if(fd[1]==='text'){
+        rows += `<div class="prop-row"><label>${fd[0]}</label><input type="text" value="${(c.props[k]||'').replace(/"/g,'&quot;')}" data-k="${k}" style="width:140px"></div>`;
       } else {
         rows += `<div class="prop-row"><label>${fd[0]}</label><input type="number" step="any" value="${c.props[k]}" data-k="${k}"></div>`;
       }
