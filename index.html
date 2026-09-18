@@ -14,6 +14,10 @@
   #app{display:grid;grid-template-columns:220px 1fr 300px;grid-template-rows:auto 1fr;height:100vh;}
   header{grid-column:1/4;display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--border);}
   header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.3px;color:var(--accent);}
+  #titleBlock{display:flex;flex-direction:column;gap:1px;}
+  #credit{font-size:10px;color:var(--muted);white-space:nowrap;}
+  #credit a{color:var(--muted);text-decoration:none;border-bottom:1px dotted var(--muted);}
+  #credit a:hover{color:var(--accent);border-bottom-color:var(--accent);}
   header .sep{width:1px;height:26px;background:var(--border);margin:0 4px;}
   .btn{background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;cursor:pointer;font-size:12.5px;display:flex;align-items:center;gap:5px;}
   .btn:hover{border-color:var(--accent);color:var(--accent);}
@@ -69,7 +73,10 @@
 <body>
 <div id="app">
   <header>
-    <h1>⚡ VoltLogic</h1>
+    <div id="titleBlock">
+      <h1>⚡ VoltLogic</h1>
+      <div id="credit">Prompted by <a href="https://abduzzami.netlify.app/" target="_blank" rel="noopener noreferrer">Abduz Zami</a> developed by <a href="https://claude.ai" target="_blank" rel="noopener noreferrer">Claude</a></div>
+    </div>
     <div class="sep"></div>
     <button class="btn" id="btnRun">▶ Run</button>
     <button class="btn" id="btnStep">⏭ Step</button>
