@@ -144,6 +144,18 @@
 /* ============================== CONSTANTS ============================== */
 const GRID = 24;                 // px per grid unit
 const HIGH_V = 5, LOW_V = 0, DIGITAL_THRESH = 2.5;
+const GATE_TYPES = new Set(['and','or','not','nand','nor','xor','xnor']);
+function gateLogic(type, a, b){
+  switch(type){
+    case 'and': return a&&b;
+    case 'or': return a||b;
+    case 'not': return !a;
+    case 'nand': return !(a&&b);
+    case 'nor': return !(a||b);
+    case 'xor': return a!==b;
+    case 'xnor': return a===b;
+  }
+}
 const Goff = 1e-9, Gwire = 1e6;  // off / closed-switch-ish conductances
 let DT = 0.0002;                 // seconds per simulation substep
 
@@ -404,13 +416,15 @@ const DEFS = {
     }
   },
   and: {
+    // sized to match the OR/NOT gates: back edge pulled in and the arc radius tuned so the body's
+    // curved tip lands at the same ~2.7 mark as the other gates, instead of bulging out further.
     label:'AND Gate', cat:'Logic', pins:[{name:'in1',x:0,y:0},{name:'in2',x:0,y:2},{name:'out',x:3,y:1}],
     bbox:{x0:-0.2,y0:-0.5,x1:3.3,y1:2.5}, defaults:{},
     draw(ctx,c,sim){
-      line(ctx,0,0,1,0); line(ctx,0,2,1,2); line(ctx,2.6,1,3,1);
-      ctx.beginPath(); mv(ctx,1,-0.5); lt(ctx,1.9,-0.5);
-      ar(ctx,1.9,1,1.5,-Math.PI/2,Math.PI/2); lt(ctx,1,2.5); ctx.closePath(); ctx.stroke();
-      textC(ctx,'AND',1.55,1);
+      line(ctx,0,0,0.5,0); line(ctx,0,2,0.5,2); line(ctx,2.7,1,3,1);
+      ctx.beginPath(); mv(ctx,0.5,-0.5); lt(ctx,1.2,-0.5);
+      ar(ctx,1.2,1,1.5,-Math.PI/2,Math.PI/2); lt(ctx,0.5,2.5); ctx.closePath(); ctx.stroke();
+      textC(ctx,'AND',1.3,1);
       gateOutDot(ctx,3,1,sim);
       dot(ctx,0,0); dot(ctx,0,2); dot(ctx,3,1);
     }
@@ -439,9 +453,82 @@ const DEFS = {
     draw(ctx,c,sim){
       line(ctx,0,1,0.8,1); line(ctx,2.55,1,3,1);
       ctx.beginPath(); mv(ctx,0.8,-0.2); lt(ctx,0.8,2.2); lt(ctx,2.2,1); ctx.closePath(); ctx.stroke();
-      ctx.beginPath(); ar(ctx,2.35,1,0.18,0,Math.PI*2); ctx.stroke();
+      gateBubble(ctx,2.35,1,0.18);
       gateOutDot(ctx,3,1,sim);
       dot(ctx,0,1); dot(ctx,3,1);
+    }
+  },
+  nand: {
+    // AND body + an output bubble (like NOT's), so the pin/lead has to sit a bit further out to clear it.
+    label:'NAND Gate', cat:'Logic', pins:[{name:'in1',x:0,y:0},{name:'in2',x:0,y:2},{name:'out',x:3.3,y:1}],
+    bbox:{x0:-0.2,y0:-0.5,x1:3.6,y1:2.5}, defaults:{},
+    draw(ctx,c,sim){
+      line(ctx,0,0,0.5,0); line(ctx,0,2,0.5,2); line(ctx,3.06,1,3.3,1);
+      ctx.beginPath(); mv(ctx,0.5,-0.5); lt(ctx,1.2,-0.5);
+      ar(ctx,1.2,1,1.5,-Math.PI/2,Math.PI/2); lt(ctx,0.5,2.5); ctx.closePath(); ctx.stroke();
+      gateBubble(ctx,2.88,1,0.18);
+      textC(ctx,'NAND',1.3,1,'8.5px sans-serif');
+      gateOutDot(ctx,3.3,1,sim);
+      dot(ctx,0,0); dot(ctx,0,2); dot(ctx,3.3,1);
+    }
+  },
+  nor: {
+    label:'NOR Gate', cat:'Logic', pins:[{name:'in1',x:0,y:0},{name:'in2',x:0,y:2},{name:'out',x:3.3,y:1}],
+    bbox:{x0:-0.2,y0:-0.5,x1:3.6,y1:2.5}, defaults:{},
+    draw(ctx,c,sim){
+      line(ctx,0,0,0.7,0.15); line(ctx,0,2,0.7,1.85); line(ctx,3.08,1,3.3,1);
+      ctx.beginPath();
+      mv(ctx,0.15,-0.4);
+      qc(ctx,1.1,-0.4,1.9,0.15);
+      qc(ctx,2.6,0.6,2.75,1);
+      qc(ctx,2.6,1.4,1.9,1.85);
+      qc(ctx,1.1,2.4,0.15,2.4);
+      qc(ctx,0.55,1.2,0.15,-0.4);
+      ctx.closePath(); ctx.stroke();
+      gateBubble(ctx,2.9,1,0.18);
+      textC(ctx,'NOR',1.4,1,'9px sans-serif');
+      gateOutDot(ctx,3.3,1,sim);
+      dot(ctx,0,0); dot(ctx,0,2); dot(ctx,3.3,1);
+    }
+  },
+  xor: {
+    // OR body plus the extra curved "double input" line that distinguishes XOR/XNOR.
+    label:'XOR Gate', cat:'Logic', pins:[{name:'in1',x:-0.3,y:0},{name:'in2',x:-0.3,y:2},{name:'out',x:3,y:1}],
+    bbox:{x0:-0.5,y0:-0.5,x1:3.3,y1:2.5}, defaults:{},
+    draw(ctx,c,sim){
+      ctx.beginPath(); mv(ctx,-0.15,-0.4); qc(ctx,0.3,1,-0.15,2.4); ctx.stroke();
+      line(ctx,-0.3,0,0.7,0.15); line(ctx,-0.3,2,0.7,1.85); line(ctx,2.7,1,3,1);
+      ctx.beginPath();
+      mv(ctx,0.15,-0.4);
+      qc(ctx,1.1,-0.4,1.9,0.15);
+      qc(ctx,2.6,0.6,2.75,1);
+      qc(ctx,2.6,1.4,1.9,1.85);
+      qc(ctx,1.1,2.4,0.15,2.4);
+      qc(ctx,0.55,1.2,0.15,-0.4);
+      ctx.closePath(); ctx.stroke();
+      textC(ctx,'XOR',1.4,1);
+      gateOutDot(ctx,3,1,sim);
+      dot(ctx,-0.3,0); dot(ctx,-0.3,2); dot(ctx,3,1);
+    }
+  },
+  xnor: {
+    label:'XNOR Gate', cat:'Logic', pins:[{name:'in1',x:-0.3,y:0},{name:'in2',x:-0.3,y:2},{name:'out',x:3.3,y:1}],
+    bbox:{x0:-0.5,y0:-0.5,x1:3.6,y1:2.5}, defaults:{},
+    draw(ctx,c,sim){
+      ctx.beginPath(); mv(ctx,-0.15,-0.4); qc(ctx,0.3,1,-0.15,2.4); ctx.stroke();
+      line(ctx,-0.3,0,0.7,0.15); line(ctx,-0.3,2,0.7,1.85); line(ctx,3.08,1,3.3,1);
+      ctx.beginPath();
+      mv(ctx,0.15,-0.4);
+      qc(ctx,1.1,-0.4,1.9,0.15);
+      qc(ctx,2.6,0.6,2.75,1);
+      qc(ctx,2.6,1.4,1.9,1.85);
+      qc(ctx,1.1,2.4,0.15,2.4);
+      qc(ctx,0.55,1.2,0.15,-0.4);
+      ctx.closePath(); ctx.stroke();
+      gateBubble(ctx,2.9,1,0.18);
+      textC(ctx,'XNOR',1.4,1,'8.5px sans-serif');
+      gateOutDot(ctx,3.3,1,sim);
+      dot(ctx,-0.3,0); dot(ctx,-0.3,2); dot(ctx,3.3,1);
     }
   },
   textlabel: {
@@ -518,7 +605,8 @@ function rectS(ctx,x,y,w,h){ ctx.strokeRect(x*GRID,y*GRID,w*GRID,h*GRID); }
 function rectF(ctx,x,y,w,h){ ctx.fillRect(x*GRID,y*GRID,w*GRID,h*GRID); }
 function dot(ctx,x,y){ ctx.fillStyle='#4da3ff'; ctx.beginPath(); ctx.arc(x*GRID,y*GRID,2.6,0,Math.PI*2); ctx.fill(); }
 function label(ctx,txt,x,y,col,align){ ctx.fillStyle=col||'#e7ecf7'; ctx.font='10px monospace'; ctx.textAlign=align||'center'; ctx.fillText(txt, x*GRID, y*GRID); ctx.textAlign='left'; }
-function textC(ctx,txt,x,y){ ctx.fillStyle='#8b97b8'; ctx.font='10px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,x*GRID,y*GRID); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
+function textC(ctx,txt,x,y,font){ ctx.fillStyle='#8b97b8'; ctx.font=font||'10px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,x*GRID,y*GRID); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
+function gateBubble(ctx,x,y,r){ ctx.beginPath(); ar(ctx,x,y,r||0.18,0,Math.PI*2); ctx.stroke(); }
 function miniSign(ctx,x,y,ch){ ctx.fillStyle = ch==='+' ? '#ff8a8a' : '#7ab8ff'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ch,x*GRID,y*GRID); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
 function bigLabel(ctx,txt,x,y,col,align){ ctx.fillStyle=col||'#e7ecf7'; ctx.font='13px sans-serif'; ctx.textAlign=align||'left'; ctx.textBaseline='middle'; ctx.fillText(txt,x*GRID,y*GRID); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
 function textWidthGrid(ctx,txt,font){ ctx.font = font||'13px sans-serif'; return ctx.measureText(txt).width/GRID; }
@@ -614,6 +702,10 @@ const ICONS = {
   and: svgWrap(`<path d="M2 2 L11 2 A7 7 0 0 1 11 16 L2 16 Z"/><line x1="0" y1="5" x2="2" y2="5"/><line x1="0" y1="13" x2="2" y2="13"/><line x1="18" y1="9" x2="25" y2="9"/>`),
   or: svgWrap(`<path d="M2 2 Q9 2 12 9 Q9 16 2 16 Q5 9 2 2 Z"/><line x1="1.5" y1="5" x2="3.5" y2="5.3"/><line x1="1.5" y1="13" x2="3.5" y2="12.7"/><line x1="18" y1="9" x2="25" y2="9"/>`),
   not: svgWrap(`<path d="M2 2 L2 16 L15 9 Z"/><circle cx="17.5" cy="9" r="2"/><line x1="0" y1="9" x2="2" y2="9"/><line x1="19.5" y1="9" x2="25" y2="9"/>`),
+  nand: svgWrap(`<path d="M2 2 L11 2 A7 7 0 0 1 11 16 L2 16 Z"/><circle cx="20" cy="9" r="2"/><line x1="0" y1="5" x2="2" y2="5"/><line x1="0" y1="13" x2="2" y2="13"/><line x1="22" y1="9" x2="25" y2="9"/>`),
+  nor: svgWrap(`<path d="M2 2 Q9 2 12 9 Q9 16 2 16 Q5 9 2 2 Z"/><circle cx="14" cy="9" r="2"/><line x1="1.5" y1="5" x2="3.5" y2="5.3"/><line x1="1.5" y1="13" x2="3.5" y2="12.7"/><line x1="16" y1="9" x2="25" y2="9"/>`),
+  xor: svgWrap(`<path d="M2 2 Q5 9 2 16"/><path d="M5 2 Q12 2 15 9 Q12 16 5 16 Q8 9 5 2 Z"/><line x1="0" y1="5" x2="2.5" y2="5.3"/><line x1="0" y1="13" x2="2.5" y2="12.7"/><line x1="21" y1="9" x2="25" y2="9"/>`),
+  xnor: svgWrap(`<path d="M2 2 Q5 9 2 16"/><path d="M5 2 Q12 2 15 9 Q12 16 5 16 Q8 9 5 2 Z"/><circle cx="17" cy="9" r="2"/><line x1="0" y1="5" x2="2.5" y2="5.3"/><line x1="0" y1="13" x2="2.5" y2="12.7"/><line x1="19" y1="9" x2="25" y2="9"/>`),
   textlabel: svgWrap(`<text x="13" y="13" font-size="13" text-anchor="middle" font-family="serif" fill="currentColor" stroke="none">T</text>`),
   arrowlabel: svgWrap(`<line x1="1" y1="9" x2="17" y2="9"/><path d="M13 5 L19 9 L13 13 Z" fill="currentColor" stroke="none"/><text x="10" y="6" font-size="6" text-anchor="middle" fill="currentColor" stroke="none">txt</text>`),
   pmlabel: svgWrap(`<text x="2" y="12" font-size="10" fill="currentColor" stroke="none">+</text><text x="13" y="12" font-size="8" text-anchor="middle" font-family="serif" fill="currentColor" stroke="none">T</text><text x="24" y="13" font-size="13" text-anchor="end" fill="currentColor" stroke="none">−</text>`)
@@ -1327,7 +1419,7 @@ function simSubstep(){
       vsList.push({comp:c, nodeP:nodes[0], nodeN:nodes[1], E});
     }
     else if(c.type==='ammeter'){ vsList.push({comp:c, nodeP:nodes[0], nodeN:nodes[1], E:0, isAmmeter:true}); }
-    else if(c.type==='and'||c.type==='or'||c.type==='not'){
+    else if(GATE_TYPES.has(c.type)){
       const outIdx = c.type==='not'?1:2;
       const E = an.gateHi ? HIGH_V : LOW_V;
       vsList.push({comp:c, nodeP:nodes[outIdx], nodeN:0, E, isGate:true});
@@ -1382,7 +1474,7 @@ function simSubstep(){
           stampG(nodes[0],nodes[1], 1e-9); // tiny leakage conductance for numerical stability
           stampI(nodes[0],nodes[1], I);
           break; }
-        case 'and': case 'or': case 'not': {
+        case 'and': case 'or': case 'not': case 'nand': case 'nor': case 'xor': case 'xnor': {
           // inputs high-impedance probes: no stamp needed beyond node existing
           break; }
         case 'voltmeter': break; // pure probe, no stamp
@@ -1415,11 +1507,10 @@ function simSubstep(){
     });
     // update gate outputs based on THIS iteration's node voltages (for feedback-free combinational settling)
     components.forEach(c=>{
-      if(c.type==='and'||c.type==='or'||c.type==='not'){
+      if(GATE_TYPES.has(c.type)){
         const nodes = net.compNodes.get(c.id); const an = ensureAnalogState(c);
-        let hi;
-        if(c.type==='not'){ hi = !(V(nodes[0])>DIGITAL_THRESH); }
-        else { const a=V(nodes[0])>DIGITAL_THRESH, b=V(nodes[1])>DIGITAL_THRESH; hi = c.type==='and'? (a&&b) : (a||b); }
+        const a=V(nodes[0])>DIGITAL_THRESH, b=c.type==='not'?false:V(nodes[1])>DIGITAL_THRESH;
+        const hi = gateLogic(c.type, a, b);
         if(hi!==an.gateHi){ an.gateHi=hi; changed=true; }
       }
     });
@@ -1446,7 +1537,7 @@ function simSubstep(){
         else { I = c.props.current; }
         c.lastSim={current:I, voltage:v}; break; }
       case 'switch': case 'pushbutton': case 'fuse': case 'potentiometer': case 'ground': break;
-      case 'and': case 'or': case 'not': c.lastSim={hi:an.gateHi}; break;
+      case 'and': case 'or': case 'not': case 'nand': case 'nor': case 'xor': case 'xnor': c.lastSim={hi:an.gateHi}; break;
       default: break;
     }
   });
