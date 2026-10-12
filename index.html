@@ -68,6 +68,11 @@
   .dropdown-menu.open{display:block;}
   .dropdown-item{padding:9px 12px;font-size:12.5px;cursor:pointer;white-space:nowrap;color:var(--text);}
   .dropdown-item:hover{background:var(--accent);color:#06111f;}
+  .settings-menu{padding:10px 12px;min-width:260px;max-width:calc(100vw - 16px);box-sizing:border-box;}
+  .set-row label{white-space:nowrap;}
+  .set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0;font-size:12.5px;color:var(--text);}
+  .set-row select,.set-row input{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:4px 6px;font-size:12.5px;}
+  .set-row input{width:64px;}
 </style>
 </head>
 <body>
@@ -107,6 +112,14 @@
       <div class="dropdown-menu" id="exportMenu">
         <div class="dropdown-item" id="exportJsonItem">📄 Export as JSON</div>
         <div class="dropdown-item" id="exportPngItem">🖼 Export as PNG</div>
+      </div>
+    </div>
+    <div class="dropdown-wrap" id="settingsWrap">
+      <button class="btn" id="btnSettings" title="Global settings">⚙ Settings</button>
+      <div class="dropdown-menu settings-menu" id="settingsMenu">
+        <div class="set-row"><label for="setFontFamily">Font style</label><select id="setFontFamily"></select></div>
+        <div class="set-row"><label for="setFontSize">Font size (px)</label><input type="number" id="setFontSize" min="6" max="40" step="1"></div>
+        <div class="set-row"><span></span><button class="btn" id="setFontReset">Reset</button></div>
       </div>
     </div>
     <button class="btn" id="btnImport" title="Import a circuit from a JSON file">⬆ Import</button>
@@ -467,7 +480,7 @@ const DEFS = {
       ctx.beginPath(); mv(ctx,0.5,-0.5); lt(ctx,1.2,-0.5);
       ar(ctx,1.2,1,1.5,-Math.PI/2,Math.PI/2); lt(ctx,0.5,2.5); ctx.closePath(); ctx.stroke();
       gateBubble(ctx,2.88,1,0.18);
-      textC(ctx,'NAND',1.3,1,'15px "Times New Roman",Times,serif');
+      textC(ctx,'NAND',1.3,1,cfont(15));
       gateOutDot(ctx,3.5,1,sim);
       dot(ctx,0,0); dot(ctx,0,2); dot(ctx,4,1);
     }
@@ -486,7 +499,7 @@ const DEFS = {
       qc(ctx,0.55,1.2,0.15,-0.4);
       ctx.closePath(); ctx.stroke();
       gateBubble(ctx,2.9,1,0.18);
-      textC(ctx,'NOR',1.4,1,'16px "Times New Roman",Times,serif');
+      textC(ctx,'NOR',1.4,1,cfont(16));
       gateOutDot(ctx,3.5,1,sim);
       dot(ctx,0,0); dot(ctx,0,2); dot(ctx,4,1);
     }
@@ -526,7 +539,7 @@ const DEFS = {
       qc(ctx,0.55,1.2,0.15,-0.4);
       ctx.closePath(); ctx.stroke();
       gateBubble(ctx,2.9,1,0.18);
-      textC(ctx,'XNOR',1.4,1,'15px "Times New Roman",Times,serif');
+      textC(ctx,'XNOR',1.4,1,cfont(15));
       gateOutDot(ctx,3.5,1,sim);
       dot(ctx,-1,0); dot(ctx,-1,2); dot(ctx,4,1);
     }
@@ -624,26 +637,37 @@ function label(ctx,txt,x,y,col,align){
   if(s.y===0) ta = s.x>0 ? 'left' : 'right';
   else if(side) ax = Math.max(x, 1.0);               // stacked under/over a sideways meter: clear the circle
   ctx.save(); ctx.translate(ax*GRID, y*GRID); ctx.rotate(-drawRot*Math.PI/2); ctx.scale(1/drawScale,1/drawScale);
-  ctx.fillStyle=ink(col||'#e7ecf7'); ctx.font='14px "Times New Roman",Times,serif'; ctx.textAlign=ta; ctx.textBaseline='middle';
+  ctx.fillStyle=ink(col||'#e7ecf7'); ctx.font=cfont(14); ctx.textAlign=ta; ctx.textBaseline='middle';
   ctx.fillText(txt, 0, 0); ctx.restore();
 }
-function textC(ctx,txt,x,y,font){ ctx.save(); ctx.translate(x*GRID,y*GRID); ctx.rotate(-drawRot*Math.PI/2); ctx.fillStyle=ink('#8b97b8'); ctx.font=font||'18px "Times New Roman",Times,serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,0,0); ctx.restore(); }
+function textC(ctx,txt,x,y,font){ ctx.save(); ctx.translate(x*GRID,y*GRID); ctx.rotate(-drawRot*Math.PI/2); ctx.fillStyle=ink('#8b97b8'); ctx.font=font||cfont(18); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,0,0); ctx.restore(); }
 function gateBubble(ctx,x,y,r){ ctx.beginPath(); ar(ctx,x,y,r||0.18,0,Math.PI*2); ctx.stroke(); }
-function miniSign(ctx,x,y,ch){ uprightAt(ctx,x,y,()=>{ ctx.scale(1/drawScale,1/drawScale); ctx.fillStyle = ink(ch==='+' ? '#ff8a8a' : '#7ab8ff'); ctx.font='bold 13px "Times New Roman",Times,serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ch,0,0); }); }
-function bigLabel(ctx,txt,x,y,col,align){ ctx.fillStyle=ink(col||'#e7ecf7'); ctx.font='14px "Times New Roman",Times,serif'; ctx.textAlign=align||'left'; ctx.textBaseline='middle'; ctx.fillText(txt,x*GRID,y*GRID); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
-function textWidthGrid(ctx,txt,font){ ctx.font = font||'14px "Times New Roman",Times,serif'; return ctx.measureText(txt).width/GRID; }
+function miniSign(ctx,x,y,ch){ uprightAt(ctx,x,y,()=>{ ctx.scale(1/drawScale,1/drawScale); ctx.fillStyle = ink(ch==='+' ? '#ff8a8a' : '#7ab8ff'); ctx.font=cfont(13,true); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ch,0,0); }); }
+function bigLabel(ctx,txt,x,y,col,align){ ctx.fillStyle=ink(col||'#e7ecf7'); ctx.font=cfont(14); ctx.textAlign=align||'left'; ctx.textBaseline='middle'; ctx.fillText(txt,x*GRID,y*GRID); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
+// ---- global text settings (⚙ Settings): family + base size for every piece of text drawn in the circuit.
+// Sizes in the code are written for a 14px base; cfont scales them proportionally to the chosen base size.
+const FONT_CHOICES = {
+  'Times New Roman':'"Times New Roman",Times,serif', 'Georgia':'Georgia,serif', 'Cambria':'Cambria,Georgia,serif',
+  'Arial':'Arial,Helvetica,sans-serif', 'Helvetica':'Helvetica,Arial,sans-serif', 'Verdana':'Verdana,sans-serif',
+  'Calibri':'Calibri,Carlito,sans-serif', 'Segoe UI':'"Segoe UI",system-ui,sans-serif',
+  'Courier New':'"Courier New",Courier,monospace', 'Consolas':'Consolas,"Courier New",monospace'
+};
+let fontSettings = { family:'Times New Roman', size:14 };
+try{ const fs = JSON.parse(localStorage.getItem('voltlogicFont')||'null'); if(fs && FONT_CHOICES[fs.family] && fs.size>=6 && fs.size<=40) fontSettings = fs; }catch(e){}
+function cfont(px, bold){ return (bold?'bold ':'') + (px*fontSettings.size/14).toFixed(1) + 'px ' + FONT_CHOICES[fontSettings.family]; }
+function textWidthGrid(ctx,txt,font){ ctx.font = font||cfont(14); return ctx.measureText(txt).width/GRID; }
 // Annotation bboxes (selection outline, hit-test, drag ghost) are sized to the ACTUAL text content
 // instead of a fixed worst-case box, so short labels don't get an oversized highlight/hit area.
 const _measureCtx = document.createElement('canvas').getContext('2d');
 function getBBox(c){
   const def = DEFS[c.type];
   if(c.type==='textlabel'){
-    _measureCtx.font='14px "Times New Roman",Times,serif';
+    _measureCtx.font=cfont(14);
     const w = _measureCtx.measureText(c.props.text||'Label').width/GRID;
     return {x0:-0.1*LU, y0:-0.35*LU, x1:w+0.1*LU, y1:0.35*LU};
   }
   if(c.type==='arrowlabel'){
-    _measureCtx.font='14px "Times New Roman",Times,serif';
+    _measureCtx.font=cfont(14);
     const shaftLen = 1.1*LU;
     const rot = ((c.rot%4)+4)%4;
     const horizontal = (rot===0||rot===2);
@@ -652,7 +676,7 @@ function getBBox(c){
     return {x0:-0.1*LU, y0:-0.2*LU, x1:Math.max(shaftLen, 0.28*LU+w)+0.1*LU, y1:0.2*LU};
   }
   if(c.type==='pmlabel'){
-    _measureCtx.font='14px "Times New Roman",Times,serif';
+    _measureCtx.font=cfont(14);
     const rot = ((c.rot%4)+4)%4;
     const horizontal = (rot===0||rot===2);
     const txt = c.props.text||'V1';
@@ -968,9 +992,9 @@ window.addEventListener('mouseup', e=>{
     const over = e.clientX>=r.left && e.clientX<=r.right && e.clientY>=r.top && e.clientY<=r.bottom;
     if(over){
       const px = e.clientX-r.left, py = e.clientY-r.top;
-      const gx = Math.round((px-view.offX)/(GRID*view.scale));
-      const gy = Math.round((py-view.offY)/(GRID*view.scale));
-      addComponent(paletteDrag.type, gx, gy);
+      const fx = (px-view.offX)/(GRID*view.scale), fy = (py-view.offY)/(GRID*view.scale);
+      const free = DEFS[paletteDrag.type].cat==='Annotations';   // labels go exactly where dropped, elements snap to the grid
+      addComponent(paletteDrag.type, free?fx:Math.round(fx), free?fy:Math.round(fy));
     }
     paletteDrag.ghost.remove();
     paletteDrag = null;
@@ -1071,7 +1095,11 @@ canvas.addEventListener('mousemove', e=>{
     return;
   }
   if(wireDraft){ const r = resolveWireSnap(g.x, g.y); wireDraft.cur = {x:r.x, y:r.y}; }
-  if(dragComp){ dragComp.gx = Math.round(g.x-dragOffset.x); dragComp.gy = Math.round(g.y-dragOffset.y); }
+  if(dragComp){
+    const free = DEFS[dragComp.type].cat==='Annotations';
+    dragComp.gx = free ? g.x-dragOffset.x : Math.round(g.x-dragOffset.x);
+    dragComp.gy = free ? g.y-dragOffset.y : Math.round(g.y-dragOffset.y);
+  }
 });
 window.addEventListener('mouseup', ()=>{
   if((dragComp || groupDrag) && dragHistorySnapshot!==null){
@@ -1211,7 +1239,11 @@ window.addEventListener('keydown', e=>{
       multiSelected.forEach(c=>{ c.gx+=d.x; c.gy+=d.y; });
       multiSelectedWires.forEach(w=>{ w.pts = w.pts.map(p=>({x:p.x+d.x, y:p.y+d.y})); });
     }
-    else if(selected && selected.kind==='comp'){ e.preventDefault(); pushHistory(); selected.obj.gx+=d.x; selected.obj.gy+=d.y; }
+    else if(selected && selected.kind==='comp'){
+      e.preventDefault(); pushHistory();
+      const step = DEFS[selected.obj.type].cat==='Annotations' ? (e.shiftKey?1:0.1) : 1;   // labels nudge finely (Shift = full cell)
+      selected.obj.gx+=d.x*step; selected.obj.gy+=d.y*step;
+    }
   }
 });
 
@@ -1280,13 +1312,42 @@ function exportJSON(){
   const blob = new Blob([data],{type:'application/json'});
   const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='circuit.json'; a.click();
 }
+// keep a dropdown fully on screen: fixed-position it under its button, clamped to the viewport edges
+function placeMenu(menu, btn){
+  if(!menu.classList.contains('open')) return;
+  const r = btn.getBoundingClientRect(), m = 8;
+  menu.style.position='fixed'; menu.style.right='auto';
+  const w = menu.offsetWidth, h = menu.offsetHeight;
+  let left = Math.min(r.right - w, window.innerWidth - w - m); left = Math.max(m, left);
+  let top = r.bottom + 4; if(top + h > window.innerHeight - m) top = Math.max(m, r.top - h - 4);
+  menu.style.left = left+'px'; menu.style.top = top+'px';
+  menu.style.maxHeight = (window.innerHeight - 2*m)+'px'; menu.style.overflowY = 'auto';
+}
+window.addEventListener('resize', ()=>{
+  placeMenu(document.getElementById('exportMenu'), document.getElementById('btnExportMenu'));
+  placeMenu(document.getElementById('settingsMenu'), document.getElementById('btnSettings'));
+});
 document.getElementById('btnExportMenu').onclick = (e)=>{
   e.stopPropagation();
-  document.getElementById('exportMenu').classList.toggle('open');
+  document.getElementById('settingsMenu').classList.remove('open');
+  const menu = document.getElementById('exportMenu');
+  menu.classList.toggle('open'); placeMenu(menu, e.currentTarget);
 };
 document.getElementById('exportJsonItem').onclick = ()=>{ exportJSON(); document.getElementById('exportMenu').classList.remove('open'); };
 document.getElementById('exportPngItem').onclick = ()=>{ exportPNG(); document.getElementById('exportMenu').classList.remove('open'); };
-window.addEventListener('click', ()=>{ document.getElementById('exportMenu').classList.remove('open'); });
+window.addEventListener('click', ()=>{ document.getElementById('exportMenu').classList.remove('open'); document.getElementById('settingsMenu').classList.remove('open'); });
+(function settingsUI(){
+  const menu = document.getElementById('settingsMenu'), fam = document.getElementById('setFontFamily'), size = document.getElementById('setFontSize');
+  fam.innerHTML = Object.keys(FONT_CHOICES).map(n=>`<option value="${n}" style="font-family:${FONT_CHOICES[n].replace(/"/g,"'")}">${n}</option>`).join('');
+  const sync = ()=>{ fam.value = fontSettings.family; size.value = fontSettings.size; };
+  const save = ()=>{ try{ localStorage.setItem('voltlogicFont', JSON.stringify(fontSettings)); }catch(e){} };
+  sync();
+  document.getElementById('btnSettings').onclick = e=>{ e.stopPropagation(); document.getElementById('exportMenu').classList.remove('open'); menu.classList.toggle('open'); sync(); placeMenu(menu, e.currentTarget); };
+  menu.addEventListener('click', e=>e.stopPropagation());
+  fam.onchange = ()=>{ fontSettings.family = fam.value; save(); };
+  size.oninput = ()=>{ const v = Math.round(+size.value); if(v>=6 && v<=40){ fontSettings.size = v; save(); } };
+  document.getElementById('setFontReset').onclick = ()=>{ fontSettings = {family:'Times New Roman', size:14}; save(); sync(); };
+})();
 function exportPNG(){
   if(components.length===0 && wires.length===0){ alert('Nothing to export — the canvas is empty.'); return; }
   let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
