@@ -142,7 +142,7 @@
 <script>
 "use strict";
 /* ============================== CONSTANTS ============================== */
-const GRID = 24;                 // px per grid unit
+const GRID = 36;                 // px per grid unit (elements are 1.5x the old 24px size; text stays in px)
 const HIGH_V = 5, LOW_V = 0, DIGITAL_THRESH = 2.5;
 const GATE_TYPES = new Set(['and','or','not','nand','nor','xor','xnor']);
 function gateLogic(type, a, b){
@@ -315,7 +315,7 @@ const DEFS = {
     bbox:{x0:-0.3,y0:-0.7,x1:2.3,y1:0.7}, defaults:{capacitance:100}, // microfarads
     draw(ctx,c){
       line(ctx,0,0,0.9,0); line(ctx,1.1,0,2,0);
-      ctx.lineWidth=3; line(ctx,0.9,-0.5,0.9,0.5); line(ctx,1.1,-0.5,1.1,0.5); ctx.lineWidth=1.5;
+      { const lw=ctx.lineWidth; ctx.lineWidth=lw*2; line(ctx,0.9,-0.5,0.9,0.5); line(ctx,1.1,-0.5,1.1,0.5); ctx.lineWidth=lw; }
       label(ctx, nf(c.props.capacitance,3)+'µF', 1, -0.95,'#e7ecf7');
       dot(ctx,0,0); dot(ctx,2,0);
     }
@@ -460,23 +460,23 @@ const DEFS = {
   },
   nand: {
     // AND body + an output bubble (like NOT's), so the pin/lead has to sit a bit further out to clear it.
-    label:'NAND Gate', cat:'Logic', pins:[{name:'in1',x:0,y:0},{name:'in2',x:0,y:2},{name:'out',x:3.3,y:1}],
-    bbox:{x0:-0.2,y0:-0.5,x1:3.6,y1:2.5}, defaults:{},
+    label:'NAND Gate', cat:'Logic', pins:[{name:'in1',x:0,y:0},{name:'in2',x:0,y:2},{name:'out',x:4,y:1}],
+    bbox:{x0:-0.2,y0:-0.5,x1:4.2,y1:2.5}, defaults:{},
     draw(ctx,c,sim){
-      line(ctx,0,0,0.5,0); line(ctx,0,2,0.5,2); line(ctx,3.06,1,3.3,1);
+      line(ctx,0,0,0.5,0); line(ctx,0,2,0.5,2); line(ctx,3.06,1,4,1);
       ctx.beginPath(); mv(ctx,0.5,-0.5); lt(ctx,1.2,-0.5);
       ar(ctx,1.2,1,1.5,-Math.PI/2,Math.PI/2); lt(ctx,0.5,2.5); ctx.closePath(); ctx.stroke();
       gateBubble(ctx,2.88,1,0.18);
-      textC(ctx,'NAND',1.3,1,'11px "Times New Roman",Times,serif');
-      gateOutDot(ctx,3.3,1,sim);
-      dot(ctx,0,0); dot(ctx,0,2); dot(ctx,3.3,1);
+      textC(ctx,'NAND',1.3,1,'15px "Times New Roman",Times,serif');
+      gateOutDot(ctx,3.5,1,sim);
+      dot(ctx,0,0); dot(ctx,0,2); dot(ctx,4,1);
     }
   },
   nor: {
-    label:'NOR Gate', cat:'Logic', pins:[{name:'in1',x:0,y:0},{name:'in2',x:0,y:2},{name:'out',x:3.3,y:1}],
-    bbox:{x0:-0.2,y0:-0.5,x1:3.6,y1:2.5}, defaults:{},
+    label:'NOR Gate', cat:'Logic', pins:[{name:'in1',x:0,y:0},{name:'in2',x:0,y:2},{name:'out',x:4,y:1}],
+    bbox:{x0:-0.2,y0:-0.5,x1:4.2,y1:2.5}, defaults:{},
     draw(ctx,c,sim){
-      line(ctx,0,0,0.7,0.15); line(ctx,0,2,0.7,1.85); line(ctx,3.08,1,3.3,1);
+      line(ctx,0,0,0.7,0.15); line(ctx,0,2,0.7,1.85); line(ctx,3.08,1,4,1);
       ctx.beginPath();
       mv(ctx,0.15,-0.4);
       qc(ctx,1.1,-0.4,1.9,0.15);
@@ -486,18 +486,18 @@ const DEFS = {
       qc(ctx,0.55,1.2,0.15,-0.4);
       ctx.closePath(); ctx.stroke();
       gateBubble(ctx,2.9,1,0.18);
-      textC(ctx,'NOR',1.4,1,'12px "Times New Roman",Times,serif');
-      gateOutDot(ctx,3.3,1,sim);
-      dot(ctx,0,0); dot(ctx,0,2); dot(ctx,3.3,1);
+      textC(ctx,'NOR',1.4,1,'16px "Times New Roman",Times,serif');
+      gateOutDot(ctx,3.5,1,sim);
+      dot(ctx,0,0); dot(ctx,0,2); dot(ctx,4,1);
     }
   },
   xor: {
     // OR body plus the extra curved "double input" line that distinguishes XOR/XNOR.
-    label:'XOR Gate', cat:'Logic', pins:[{name:'in1',x:-0.3,y:0},{name:'in2',x:-0.3,y:2},{name:'out',x:3,y:1}],
-    bbox:{x0:-0.5,y0:-0.5,x1:3.3,y1:2.5}, defaults:{},
+    label:'XOR Gate', cat:'Logic', pins:[{name:'in1',x:-1,y:0},{name:'in2',x:-1,y:2},{name:'out',x:3,y:1}],
+    bbox:{x0:-1.2,y0:-0.5,x1:3.3,y1:2.5}, defaults:{},
     draw(ctx,c,sim){
       ctx.beginPath(); mv(ctx,-0.15,-0.4); qc(ctx,0.3,1,-0.15,2.4); ctx.stroke();
-      line(ctx,-0.3,0,0.7,0.15); line(ctx,-0.3,2,0.7,1.85); line(ctx,2.7,1,3,1);
+      line(ctx,-1,0,0.7,0.15); line(ctx,-1,2,0.7,1.85); line(ctx,2.7,1,3,1);
       ctx.beginPath();
       mv(ctx,0.15,-0.4);
       qc(ctx,1.1,-0.4,1.9,0.15);
@@ -508,15 +508,15 @@ const DEFS = {
       ctx.closePath(); ctx.stroke();
       textC(ctx,'XOR',1.4,1);
       gateOutDot(ctx,3,1,sim);
-      dot(ctx,-0.3,0); dot(ctx,-0.3,2); dot(ctx,3,1);
+      dot(ctx,-1,0); dot(ctx,-1,2); dot(ctx,3,1);
     }
   },
   xnor: {
-    label:'XNOR Gate', cat:'Logic', pins:[{name:'in1',x:-0.3,y:0},{name:'in2',x:-0.3,y:2},{name:'out',x:3.3,y:1}],
-    bbox:{x0:-0.5,y0:-0.5,x1:3.6,y1:2.5}, defaults:{},
+    label:'XNOR Gate', cat:'Logic', pins:[{name:'in1',x:-1,y:0},{name:'in2',x:-1,y:2},{name:'out',x:4,y:1}],
+    bbox:{x0:-1.2,y0:-0.5,x1:4.2,y1:2.5}, defaults:{},
     draw(ctx,c,sim){
       ctx.beginPath(); mv(ctx,-0.15,-0.4); qc(ctx,0.3,1,-0.15,2.4); ctx.stroke();
-      line(ctx,-0.3,0,0.7,0.15); line(ctx,-0.3,2,0.7,1.85); line(ctx,3.08,1,3.3,1);
+      line(ctx,-1,0,0.7,0.15); line(ctx,-1,2,0.7,1.85); line(ctx,3.08,1,4,1);
       ctx.beginPath();
       mv(ctx,0.15,-0.4);
       qc(ctx,1.1,-0.4,1.9,0.15);
@@ -526,9 +526,9 @@ const DEFS = {
       qc(ctx,0.55,1.2,0.15,-0.4);
       ctx.closePath(); ctx.stroke();
       gateBubble(ctx,2.9,1,0.18);
-      textC(ctx,'XNOR',1.4,1,'11px "Times New Roman",Times,serif');
-      gateOutDot(ctx,3.3,1,sim);
-      dot(ctx,-0.3,0); dot(ctx,-0.3,2); dot(ctx,3.3,1);
+      textC(ctx,'XNOR',1.4,1,'15px "Times New Roman",Times,serif');
+      gateOutDot(ctx,3.5,1,sim);
+      dot(ctx,-1,0); dot(ctx,-1,2); dot(ctx,4,1);
     }
   },
   textlabel: {
@@ -545,14 +545,14 @@ const DEFS = {
     bbox:{x0:-0.7,y0:-0.9,x1:3.2,y1:0.9}, defaults:{text:'Note'},
     draw(ctx,c){
       const rot = ((c.rot%4)+4)%4;
-      const shaftLen = 1.1;
+      const shaftLen = 1.1*LU;
       // arrow shaft + head — small, and this rotates normally with the component
       ctx.beginPath(); mv(ctx,0,0); lt(ctx,shaftLen,0); ctx.stroke();
-      ctx.beginPath(); mv(ctx,shaftLen,0); lt(ctx,shaftLen-0.28,-0.14); mv(ctx,shaftLen,0); lt(ctx,shaftLen-0.28,0.14); ctx.stroke();
+      ctx.beginPath(); mv(ctx,shaftLen,0); lt(ctx,shaftLen-0.28*LU,-0.14*LU); mv(ctx,shaftLen,0); lt(ctx,shaftLen-0.28*LU,0.14*LU); ctx.stroke();
       // text stays upright regardless of rotation: above the arrow when horizontal, beside it when vertical
       const horizontal = (rot===0||rot===2);
       const screenMid = rotPt({x:shaftLen/2,y:0}, rot);
-      const screenOffset = horizontal ? {x:0,y:-0.32} : {x:0.28,y:0};
+      const screenOffset = horizontal ? {x:0,y:-0.32*LU} : {x:0.28*LU,y:0};
       const screenAnchor = {x:screenMid.x+screenOffset.x, y:screenMid.y+screenOffset.y};
       const localAnchor = rotPt(screenAnchor, invRot(rot));
       ctx.save();
@@ -586,9 +586,9 @@ const DEFS = {
         put(txt, x, 0, col, 'left'); x += textWidthGrid(ctx, txt+' ');
         put('−', x, 0, '#7ab8ff', 'left');
       } else {
-        put('+', 0, -0.4, '#ff8a8a', 'center');
+        put('+', 0, -0.4*LU, '#ff8a8a', 'center');
         put(txt, 0, 0, col, 'center');
-        put('−', 0, 0.4, '#7ab8ff', 'center');
+        put('−', 0, 0.4*LU, '#7ab8ff', 'center');
       }
     }
   }
@@ -608,9 +608,13 @@ function ar(ctx,x,y,r,a0,a1,ccw){ ctx.arc(x*GRID,y*GRID,r*GRID,a0,a1,ccw); }
 function qc(ctx,cx,cy,x,y){ ctx.quadraticCurveTo(cx*GRID,cy*GRID,x*GRID,y*GRID); }
 function rectS(ctx,x,y,w,h){ ctx.strokeRect(x*GRID,y*GRID,w*GRID,h*GRID); }
 function rectF(ctx,x,y,w,h){ ctx.fillRect(x*GRID,y*GRID,w*GRID,h*GRID); }
-function dot(ctx,x,y){ ctx.fillStyle=ink('#4da3ff'); ctx.beginPath(); ctx.arc(x*GRID,y*GRID,2.6,0,Math.PI*2); ctx.fill(); }
+function dot(ctx,x,y){ ctx.fillStyle=ink('#4da3ff'); ctx.beginPath(); ctx.arc(x*GRID,y*GRID,2.6/drawScale,0,Math.PI*2); ctx.fill(); }
 // value labels stay upright whatever the component's rotation (anchor follows the rotation, glyphs don't)
 let drawRot = 0;
+// Circuit elements are drawn at GRID = 36px per unit — 1.5x the 24px unit that text/labels are designed around.
+// LU converts label-sized distances (designed for 24px units) into grid units so annotations keep their old size.
+const LU = 24/GRID;
+let drawScale = 1;
 function label(ctx,txt,x,y,col,align){
   // keep text upright, and push it AWAY from the part: when the label's offset direction ends up horizontal on
   // screen (part rotated), anchor the text's near edge instead of its centre so it can't run back over the body.
@@ -619,13 +623,13 @@ function label(ctx,txt,x,y,col,align){
   let ax = x, ta = 'center';
   if(s.y===0) ta = s.x>0 ? 'left' : 'right';
   else if(side) ax = Math.max(x, 1.0);               // stacked under/over a sideways meter: clear the circle
-  ctx.save(); ctx.translate(ax*GRID, y*GRID); ctx.rotate(-drawRot*Math.PI/2);
+  ctx.save(); ctx.translate(ax*GRID, y*GRID); ctx.rotate(-drawRot*Math.PI/2); ctx.scale(1/drawScale,1/drawScale);
   ctx.fillStyle=ink(col||'#e7ecf7'); ctx.font='14px "Times New Roman",Times,serif'; ctx.textAlign=ta; ctx.textBaseline='middle';
   ctx.fillText(txt, 0, 0); ctx.restore();
 }
-function textC(ctx,txt,x,y,font){ ctx.save(); ctx.translate(x*GRID,y*GRID); ctx.rotate(-drawRot*Math.PI/2); ctx.fillStyle=ink('#8b97b8'); ctx.font=font||'13px "Times New Roman",Times,serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,0,0); ctx.restore(); }
+function textC(ctx,txt,x,y,font){ ctx.save(); ctx.translate(x*GRID,y*GRID); ctx.rotate(-drawRot*Math.PI/2); ctx.fillStyle=ink('#8b97b8'); ctx.font=font||'18px "Times New Roman",Times,serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,0,0); ctx.restore(); }
 function gateBubble(ctx,x,y,r){ ctx.beginPath(); ar(ctx,x,y,r||0.18,0,Math.PI*2); ctx.stroke(); }
-function miniSign(ctx,x,y,ch){ uprightAt(ctx,x,y,()=>{ ctx.fillStyle = ink(ch==='+' ? '#ff8a8a' : '#7ab8ff'); ctx.font='bold 13px "Times New Roman",Times,serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ch,0,0); }); }
+function miniSign(ctx,x,y,ch){ uprightAt(ctx,x,y,()=>{ ctx.scale(1/drawScale,1/drawScale); ctx.fillStyle = ink(ch==='+' ? '#ff8a8a' : '#7ab8ff'); ctx.font='bold 13px "Times New Roman",Times,serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ch,0,0); }); }
 function bigLabel(ctx,txt,x,y,col,align){ ctx.fillStyle=ink(col||'#e7ecf7'); ctx.font='14px "Times New Roman",Times,serif'; ctx.textAlign=align||'left'; ctx.textBaseline='middle'; ctx.fillText(txt,x*GRID,y*GRID); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
 function textWidthGrid(ctx,txt,font){ ctx.font = font||'14px "Times New Roman",Times,serif'; return ctx.measureText(txt).width/GRID; }
 // Annotation bboxes (selection outline, hit-test, drag ghost) are sized to the ACTUAL text content
@@ -636,16 +640,16 @@ function getBBox(c){
   if(c.type==='textlabel'){
     _measureCtx.font='14px "Times New Roman",Times,serif';
     const w = _measureCtx.measureText(c.props.text||'Label').width/GRID;
-    return {x0:-0.1, y0:-0.35, x1:w+0.1, y1:0.35};
+    return {x0:-0.1*LU, y0:-0.35*LU, x1:w+0.1*LU, y1:0.35*LU};
   }
   if(c.type==='arrowlabel'){
     _measureCtx.font='14px "Times New Roman",Times,serif';
-    const shaftLen = 1.1;
+    const shaftLen = 1.1*LU;
     const rot = ((c.rot%4)+4)%4;
     const horizontal = (rot===0||rot===2);
     const w = _measureCtx.measureText(c.props.text||'Note').width/GRID;
-    if(horizontal) return {x0:-0.1, y0:-0.6, x1:Math.max(shaftLen, w)+0.1, y1:0.2};
-    return {x0:-0.1, y0:-0.2, x1:Math.max(shaftLen, 0.28+w)+0.1, y1:0.2};
+    if(horizontal) return {x0:-0.1*LU, y0:-0.6*LU, x1:Math.max(shaftLen, w)+0.1*LU, y1:0.2*LU};
+    return {x0:-0.1*LU, y0:-0.2*LU, x1:Math.max(shaftLen, 0.28*LU+w)+0.1*LU, y1:0.2*LU};
   }
   if(c.type==='pmlabel'){
     _measureCtx.font='14px "Times New Roman",Times,serif';
@@ -654,14 +658,14 @@ function getBBox(c){
     const txt = c.props.text||'V1';
     if(horizontal){
       const w = _measureCtx.measureText('+ '+txt+' −').width/GRID;
-      return {x0:-0.1, y0:-0.35, x1:w+0.1, y1:0.35};
+      return {x0:-0.1*LU, y0:-0.35*LU, x1:w+0.1*LU, y1:0.35*LU};
     }
     const w = Math.max(_measureCtx.measureText('+').width, _measureCtx.measureText(txt).width, _measureCtx.measureText('−').width)/GRID;
-    return {x0:-w/2-0.1, y0:-0.6, x1:w/2+0.1, y1:0.6};
+    return {x0:-w/2-0.1*LU, y0:-0.6*LU, x1:w/2+0.1*LU, y1:0.6*LU};
   }
   return def.bbox;
 }
-function gateOutDot(ctx,x,y,sim){ if(!sim || exportInk) return; ctx.fillStyle = sim.hi? '#3ddc97':'#3a4568'; ctx.beginPath(); ctx.arc(x*GRID+8,y*GRID,4,0,Math.PI*2); ctx.fill(); }
+function gateOutDot(ctx,x,y,sim){ if(!sim || exportInk) return; ctx.fillStyle = sim.hi? '#3ddc97':'#3a4568'; ctx.beginPath(); ctx.arc(x*GRID+8/drawScale,y*GRID,4/drawScale,0,Math.PI*2); ctx.fill(); }
 // shared source-symbol pieces: same circle glyph for DC and AC of each kind (voltage vs current) —
 // AC differs only in its value (phasor) and frequency, never in the icon.
 function sourceCircle(ctx){ line(ctx,0,0,0.35,0); line(ctx,1.65,0,2,0); ctx.beginPath(); ar(ctx,1,0,0.65,0,Math.PI*2); ctx.stroke(); }
@@ -1272,7 +1276,7 @@ document.getElementById('btnFreqMode').onclick = ()=>{
   drawScope();
 };
 function exportJSON(){
-  const data = JSON.stringify({components:components.map(c=>({...c,lastSim:undefined})), wires}, null, 2);
+  const data = JSON.stringify({gridScale:1, components:components.map(c=>({...c,lastSim:undefined})), wires}, null, 2);
   const blob = new Blob([data],{type:'application/json'});
   const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='circuit.json'; a.click();
 }
@@ -1354,6 +1358,9 @@ document.getElementById('fileInput').onchange = e=>{
   const f = e.target.files[0]; if(!f) return;
   const r = new FileReader();
   r.onload = ()=>{ try{ const data = JSON.parse(r.result); pushHistory(); components = data.components||[]; wires = data.wires||[];
+    // files saved by the short-lived 2x-element version used doubled coordinates: bring them back to the standard layout
+    const k = data.gridScale===2 ? 0.5 : 1;
+    if(k!==1){ components.forEach(c=>{ c.gx*=k; c.gy*=k; }); wires.forEach(w=>{ w.pts = w.pts.map(p=>({x:p.x*k, y:p.y*k})); }); }
     nextId = 1+Math.max(0,...components.map(c=>c.id),...wires.map(w=>w.id));
     selected=null; refreshRightPanel(); }catch(err){ alert('Invalid file: '+err.message); } };
   r.readAsText(f);
@@ -1768,21 +1775,21 @@ function resizeCanvasToWrap(){
 // starter demo circuit: AC voltage source -> resistor -> bulb (LED) in series, with a voltmeter
 // across the resistor and an ammeter right after the bulb, closed through a ground reference.
 (function demo(){
-  const src = addComponent('vsource', 4, 6); src.props.mode='AC'; src.props.amplitude=10; src.props.freq=2; src.props.phaseDeg=0;
-  const res = addComponent('resistor', 10, 6); res.props.resistance=330;
-  const bulb = addComponent('led', 18, 6); bulb.rot = 2;      // anode at (18,6), cathode at (16,6) — forward-biased this orientation
-  const amm = addComponent('ammeter', 22, 6);                  // right after the bulb, in series
-  const gnd = addComponent('ground', 4, 9);
-  const vm = addComponent('voltmeter', 12, 3); vm.rot = 1;     // rotated so its two leads span horizontally across the resistor
+  const src = addComponent('vsource', 2, 5); src.props.mode='AC'; src.props.amplitude=10; src.props.freq=2; src.props.phaseDeg=0; // + (2,5), − (4,5)
+  const res = addComponent('resistor', 5, 5); res.props.resistance=330;     // a (5,5), b (7,5)
+  const bulb = addComponent('led', 10, 5); bulb.rot = 2;                      // anode (10,5), cathode (8,5) — forward-biased
+  const amm = addComponent('ammeter', 11, 5);                                 // + (11,5), − (13,5), in series after the bulb
+  const gnd = addComponent('ground', 2, 7);
+  const vm = addComponent('voltmeter', 7, 2); vm.rot = 1;                     // + (7,2), − (5,2): spans the resistor
 
-  wires.push({id:nextId++, pts:manhattan({x:6,y:6},{x:10,y:6})});   // source(-) -> resistor(a)
-  wires.push({id:nextId++, pts:manhattan({x:12,y:6},{x:16,y:6})});  // resistor(b) -> bulb cathode
-  wires.push({id:nextId++, pts:manhattan({x:18,y:6},{x:22,y:6})});  // bulb anode -> ammeter(a)
-  wires.push({id:nextId++, pts:manhattan({x:24,y:6},{x:24,y:9})});  // ammeter(b) -> down
-  wires.push({id:nextId++, pts:manhattan({x:24,y:9},{x:4,y:9})});   // ground rail (includes ground pin)
-  wires.push({id:nextId++, pts:manhattan({x:4,y:9},{x:4,y:6})});    // rail -> source(+)
-  wires.push({id:nextId++, pts:manhattan({x:10,y:3},{x:10,y:6})});  // voltmeter(-) -> resistor(a) node
-  wires.push({id:nextId++, pts:manhattan({x:12,y:3},{x:12,y:6})});  // voltmeter(+) -> resistor(b) node
+  wires.push({id:nextId++, pts:manhattan({x:4,y:5},{x:5,y:5})});     // source(−) -> resistor(a)
+  wires.push({id:nextId++, pts:manhattan({x:7,y:5},{x:8,y:5})});     // resistor(b) -> bulb cathode
+  wires.push({id:nextId++, pts:manhattan({x:10,y:5},{x:11,y:5})});   // bulb anode -> ammeter(+)
+  wires.push({id:nextId++, pts:manhattan({x:13,y:5},{x:13,y:7})});   // ammeter(−) -> down
+  wires.push({id:nextId++, pts:manhattan({x:13,y:7},{x:2,y:7})});    // ground rail (includes ground pin)
+  wires.push({id:nextId++, pts:manhattan({x:2,y:7},{x:2,y:5})});     // rail -> source(+)
+  wires.push({id:nextId++, pts:manhattan({x:5,y:2},{x:5,y:5})});     // voltmeter(−) -> resistor(a) node
+  wires.push({id:nextId++, pts:manhattan({x:7,y:2},{x:7,y:5})});     // voltmeter(+) -> resistor(b) node
   selected=null; refreshRightPanel();
   // the starter demo itself shouldn't be sitting in the undo history — start the user with a clean slate
   historyStack = []; redoStack = []; updateUndoRedoButtons();
