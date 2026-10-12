@@ -316,7 +316,7 @@ const DEFS = {
     draw(ctx,c){
       line(ctx,0,0,0.9,0); line(ctx,1.1,0,2,0);
       ctx.lineWidth=3; line(ctx,0.9,-0.5,0.9,0.5); line(ctx,1.1,-0.5,1.1,0.5); ctx.lineWidth=1.5;
-      label(ctx, nf(c.props.capacitance,3)+'µF', 1, -0.85,'#e7ecf7');
+      label(ctx, nf(c.props.capacitance,3)+'µF', 1, -0.95,'#e7ecf7');
       dot(ctx,0,0); dot(ctx,2,0);
     }
   },
@@ -364,7 +364,7 @@ const DEFS = {
       line(ctx,0,0,0.7,0); line(ctx,1.3,0,2,0);
       ctx.fillStyle = exportInk ? 'rgba(0,0,0,0)' : (c.state.pressed? '#3ddc97':'#3a4568');
       rectF(ctx,0.7,-0.45,0.6,0.9); rectS(ctx,0.7,-0.45,0.6,0.9);
-      label(ctx, c.state.pressed?'PRESSED':'push', 1, -0.75, c.state.pressed?'#3ddc97':'#8b97b8');
+      label(ctx, c.state.pressed?'PRESSED':'push', 1, -0.95, c.state.pressed?'#3ddc97':'#8b97b8');
       dot(ctx,0,0); dot(ctx,2,0);
     }
   },
@@ -612,8 +612,15 @@ function dot(ctx,x,y){ ctx.fillStyle=ink('#4da3ff'); ctx.beginPath(); ctx.arc(x*
 // value labels stay upright whatever the component's rotation (anchor follows the rotation, glyphs don't)
 let drawRot = 0;
 function label(ctx,txt,x,y,col,align){
-  ctx.save(); ctx.translate(x*GRID, y*GRID); ctx.rotate(-drawRot*Math.PI/2);
-  ctx.fillStyle=ink(col||'#e7ecf7'); ctx.font='14px "Times New Roman",Times,serif'; ctx.textAlign=align||'center'; ctx.textBaseline='middle';
+  // keep text upright, and push it AWAY from the part: when the label's offset direction ends up horizontal on
+  // screen (part rotated), anchor the text's near edge instead of its centre so it can't run back over the body.
+  const side = align==='left';                       // voltmeter-style label: offset along local +x
+  const s = rotPt(side ? {x:1,y:0} : {x:0,y:(y<0?-1:1)}, drawRot);
+  let ax = x, ta = 'center';
+  if(s.y===0) ta = s.x>0 ? 'left' : 'right';
+  else if(side) ax = Math.max(x, 1.0);               // stacked under/over a sideways meter: clear the circle
+  ctx.save(); ctx.translate(ax*GRID, y*GRID); ctx.rotate(-drawRot*Math.PI/2);
+  ctx.fillStyle=ink(col||'#e7ecf7'); ctx.font='14px "Times New Roman",Times,serif'; ctx.textAlign=ta; ctx.textBaseline='middle';
   ctx.fillText(txt, 0, 0); ctx.restore();
 }
 function textC(ctx,txt,x,y,font){ ctx.save(); ctx.translate(x*GRID,y*GRID); ctx.rotate(-drawRot*Math.PI/2); ctx.fillStyle=ink('#8b97b8'); ctx.font=font||'13px "Times New Roman",Times,serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,0,0); ctx.restore(); }
