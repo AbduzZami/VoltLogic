@@ -243,7 +243,7 @@ const DEFS = {
       sourceCircle(ctx); plusMinus(ctx);
       const txt = c.props.mode==='AC'
         ? fmtPhasor(c.props.amplitude, c.props.phaseDeg, c.props.form, 'V')+(freqModeOn?' '+c.props.freq+'Hz':'')
-        : c.props.voltage.toFixed(2)+'V';
+        : nf(c.props.voltage,2)+'V';
       label(ctx, txt, 1, -1.1, '#4da3ff');
       dot(ctx,0,0); dot(ctx,2,0);
     }
@@ -279,7 +279,7 @@ const DEFS = {
     label:'LED', cat:'Semiconductors', pins:[{name:'a',x:0,y:0},{name:'k',x:2,y:0}],
     bbox:{x0:-0.3,y0:-1.75,x1:2.3,y1:0.4}, defaults:{color:'red'},
     draw(ctx,c,sim){
-      const on = sim && sim.current!=null && Math.abs(sim.current) > 0.0005 && sim.on;
+      const on = !exportInk && sim && sim.current!=null && Math.abs(sim.current) > 0.0005 && sim.on;
       const colMap={red:'#ff5d6c',green:'#3ddc97',blue:'#4da3ff',yellow:'#ffd24d',white:'#f4f7ff'};
       const col = colMap[c.props.color]||'#ff5d6c';
       if(on){ ctx.save(); ctx.shadowColor=col; ctx.shadowBlur=20*Math.min(1,(sim.current||0)/0.02); }
@@ -287,7 +287,7 @@ const DEFS = {
       line(ctx,0,0,0.65,0); line(ctx,1.35,0,2,0);
       line(ctx,0.65,0,0.65,-0.1); line(ctx,1.35,0,1.35,-0.1);
       // screw base (a few thread lines)
-      ctx.strokeStyle = on? col : '#8b97b8';
+      ctx.strokeStyle = ink(on? col : '#8b97b8');
       rectS(ctx,0.65,-0.32,0.7,0.22);
       line(ctx,0.65,-0.1,1.35,-0.1); line(ctx,0.65,-0.21,1.35,-0.21);
       // glass bulb
@@ -298,14 +298,14 @@ const DEFS = {
       qc(ctx,1.52,-1.42,1.55,-0.95);
       qc(ctx,1.58,-0.55,1.35,-0.32);
       ctx.closePath();
-      ctx.fillStyle = on? col : 'rgba(255,255,255,0.06)';
+      ctx.fillStyle = exportInk ? 'rgba(0,0,0,0)' : (on? col : 'rgba(255,255,255,0.06)');
       ctx.fill();
-      ctx.strokeStyle = on? col : '#c7cee3';
+      ctx.strokeStyle = ink(on? col : '#c7cee3');
       ctx.stroke();
       // filament
-      ctx.strokeStyle = on? '#ffffff' : '#8b97b8';
+      ctx.strokeStyle = ink(on? '#ffffff' : '#8b97b8');
       ctx.beginPath(); mv(ctx,0.85,-0.32); lt(ctx,0.85,-0.75); lt(ctx,1.15,-0.95); lt(ctx,0.85,-1.1); lt(ctx,1.15,-1.32); ctx.stroke();
-      ctx.strokeStyle='#e7ecf7';
+      ctx.strokeStyle=ink('#e7ecf7');
       if(on) ctx.restore();
       dot(ctx,0,0); dot(ctx,2,0);
     }
@@ -316,7 +316,7 @@ const DEFS = {
     draw(ctx,c){
       line(ctx,0,0,0.9,0); line(ctx,1.1,0,2,0);
       ctx.lineWidth=3; line(ctx,0.9,-0.5,0.9,0.5); line(ctx,1.1,-0.5,1.1,0.5); ctx.lineWidth=1.5;
-      label(ctx, c.props.capacitance+'µF', 1, -0.85,'#e7ecf7');
+      label(ctx, nf(c.props.capacitance,3)+'µF', 1, -0.85,'#e7ecf7');
       dot(ctx,0,0); dot(ctx,2,0);
     }
   },
@@ -329,7 +329,7 @@ const DEFS = {
       for(let i=0;i<4;i++){ const x0=0.3+i*0.35; mv(ctx,x0,0); ar(ctx,x0+0.175,0,0.175,Math.PI,0,true); }
       ctx.stroke();
       line(ctx,1.7,0,2,0);
-      label(ctx, c.props.inductance+'mH', 1, -0.75,'#e7ecf7');
+      label(ctx, nf(c.props.inductance,3)+'mH', 1, -0.75,'#e7ecf7');
       dot(ctx,0,0); dot(ctx,2,0);
     }
   },
@@ -362,7 +362,7 @@ const DEFS = {
     bbox:{x0:-0.3,y0:-0.9,x1:2.3,y1:0.4}, defaults:{}, initState:{pressed:false},
     draw(ctx,c){
       line(ctx,0,0,0.7,0); line(ctx,1.3,0,2,0);
-      ctx.fillStyle = c.state.pressed? '#3ddc97':'#3a4568';
+      ctx.fillStyle = exportInk ? 'rgba(0,0,0,0)' : (c.state.pressed? '#3ddc97':'#3a4568');
       rectF(ctx,0.7,-0.45,0.6,0.9); rectS(ctx,0.7,-0.45,0.6,0.9);
       label(ctx, c.state.pressed?'PRESSED':'push', 1, -0.75, c.state.pressed?'#3ddc97':'#8b97b8');
       dot(ctx,0,0); dot(ctx,2,0);
@@ -375,8 +375,8 @@ const DEFS = {
       line(ctx,0,0,0.3,0); line(ctx,1.7,0,2,0);
       rectS(ctx,0.3,-0.3,1.4,0.6);
       if(!c.state.blown){ line(ctx,0.3,0,1.7,0); }
-      else { line(ctx,0.3,0,0.85,0.2); line(ctx,1.15,-0.2,1.7,0); ctx.strokeStyle='#ff5d6c'; line(ctx,0.85,0.2,1.15,-0.2); }
-      label(ctx, c.props.rated+'A'+(c.state.blown?' BLOWN':''), 1, -0.75, c.state.blown?'#ff5d6c':'#e7ecf7');
+      else { line(ctx,0.3,0,0.85,0.2); line(ctx,1.15,-0.2,1.7,0); ctx.strokeStyle=ink('#ff5d6c'); line(ctx,0.85,0.2,1.15,-0.2); }
+      label(ctx, nf(c.props.rated,3)+'A'+(c.state.blown?' BLOWN':''), 1, -0.75, c.state.blown?'#ff5d6c':'#e7ecf7');
       dot(ctx,0,0); dot(ctx,2,0);
     }
   },
@@ -398,7 +398,7 @@ const DEFS = {
       textC(ctx,'V',0,1);
       miniSign(ctx,-0.32,0.12,'+');
       miniSign(ctx,-0.32,1.88,'−');
-      label(ctx, sim? sim.value.toFixed(2)+'V':'--', 0.7, 1,'#3ddc97', 'left');
+      label(ctx, sim? nf(sim.value,2)+'V':'--', 0.7, 1,'#3ddc97', 'left');
       dot(ctx,0,0); dot(ctx,0,2);
     }
   },
@@ -411,7 +411,7 @@ const DEFS = {
       textC(ctx,'A',1,0);
       miniSign(ctx,0.18,-0.32,'+');
       miniSign(ctx,1.82,-0.32,'−');
-      label(ctx, sim? fmtI(sim.value):'--', 1, 0.85,'#3ddc97');
+      label(ctx, sim? fmtI(sim.value):'--', 1, 1.05,'#3ddc97');
       dot(ctx,0,0); dot(ctx,2,0);
     }
   },
@@ -467,7 +467,7 @@ const DEFS = {
       ctx.beginPath(); mv(ctx,0.5,-0.5); lt(ctx,1.2,-0.5);
       ar(ctx,1.2,1,1.5,-Math.PI/2,Math.PI/2); lt(ctx,0.5,2.5); ctx.closePath(); ctx.stroke();
       gateBubble(ctx,2.88,1,0.18);
-      textC(ctx,'NAND',1.3,1,'8.5px sans-serif');
+      textC(ctx,'NAND',1.3,1,'10px sans-serif');
       gateOutDot(ctx,3.3,1,sim);
       dot(ctx,0,0); dot(ctx,0,2); dot(ctx,3.3,1);
     }
@@ -486,7 +486,7 @@ const DEFS = {
       qc(ctx,0.55,1.2,0.15,-0.4);
       ctx.closePath(); ctx.stroke();
       gateBubble(ctx,2.9,1,0.18);
-      textC(ctx,'NOR',1.4,1,'9px sans-serif');
+      textC(ctx,'NOR',1.4,1,'11px sans-serif');
       gateOutDot(ctx,3.3,1,sim);
       dot(ctx,0,0); dot(ctx,0,2); dot(ctx,3.3,1);
     }
@@ -526,7 +526,7 @@ const DEFS = {
       qc(ctx,0.55,1.2,0.15,-0.4);
       ctx.closePath(); ctx.stroke();
       gateBubble(ctx,2.9,1,0.18);
-      textC(ctx,'XNOR',1.4,1,'8.5px sans-serif');
+      textC(ctx,'XNOR',1.4,1,'10px sans-serif');
       gateOutDot(ctx,3.3,1,sim);
       dot(ctx,-0.3,0); dot(ctx,-0.3,2); dot(ctx,3.3,1);
     }
@@ -593,8 +593,13 @@ const DEFS = {
     }
   }
 };
-function fmtR(v){ if(v>=1e6) return (v/1e6).toFixed(2)+'MΩ'; if(v>=1e3) return (v/1e3).toFixed(2)+'kΩ'; return v.toFixed(0)+'Ω'; }
-function fmtI(v){ const a=Math.abs(v); if(a>=1) return v.toFixed(3)+'A'; if(a>=1e-3) return (v*1e3).toFixed(2)+'mA'; return (v*1e6).toFixed(1)+'µA'; }
+// nf: fixed decimals but trailing zeros dropped (5.00 -> 5, 2.50 -> 2.5)
+function nf(v,d){ const r = parseFloat((+v).toFixed(d)); return String(Object.is(r,-0)?0:r); }
+// exportInk: when set (PNG export), every hardcoded UI colour in the draw helpers is replaced by the component's category colour
+let exportInk = null;
+function ink(col){ return exportInk || col; }
+function fmtR(v){ if(v>=1e6) return nf(v/1e6,2)+'MΩ'; if(v>=1e3) return nf(v/1e3,2)+'kΩ'; return nf(v,2)+'Ω'; }
+function fmtI(v){ const a=Math.abs(v); if(a>=1) return nf(v,3)+'A'; if(a>=1e-3) return nf(v*1e3,2)+'mA'; return nf(v*1e6,1)+'µA'; }
 function line(ctx,x1,y1,x2,y2){ ctx.beginPath(); ctx.moveTo(x1*GRID,y1*GRID); ctx.lineTo(x2*GRID,y2*GRID); ctx.stroke(); }
 // grid-unit-scaled path primitives, for custom multi-segment shapes (zigzags, coils, gate bodies, ...)
 function mv(ctx,x,y){ ctx.moveTo(x*GRID,y*GRID); }
@@ -603,12 +608,18 @@ function ar(ctx,x,y,r,a0,a1,ccw){ ctx.arc(x*GRID,y*GRID,r*GRID,a0,a1,ccw); }
 function qc(ctx,cx,cy,x,y){ ctx.quadraticCurveTo(cx*GRID,cy*GRID,x*GRID,y*GRID); }
 function rectS(ctx,x,y,w,h){ ctx.strokeRect(x*GRID,y*GRID,w*GRID,h*GRID); }
 function rectF(ctx,x,y,w,h){ ctx.fillRect(x*GRID,y*GRID,w*GRID,h*GRID); }
-function dot(ctx,x,y){ ctx.fillStyle='#4da3ff'; ctx.beginPath(); ctx.arc(x*GRID,y*GRID,2.6,0,Math.PI*2); ctx.fill(); }
-function label(ctx,txt,x,y,col,align){ ctx.fillStyle=col||'#e7ecf7'; ctx.font='10px monospace'; ctx.textAlign=align||'center'; ctx.fillText(txt, x*GRID, y*GRID); ctx.textAlign='left'; }
-function textC(ctx,txt,x,y,font){ ctx.fillStyle='#8b97b8'; ctx.font=font||'10px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,x*GRID,y*GRID); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
+function dot(ctx,x,y){ ctx.fillStyle=ink('#4da3ff'); ctx.beginPath(); ctx.arc(x*GRID,y*GRID,2.6,0,Math.PI*2); ctx.fill(); }
+// value labels stay upright whatever the component's rotation (anchor follows the rotation, glyphs don't)
+let drawRot = 0;
+function label(ctx,txt,x,y,col,align){
+  ctx.save(); ctx.translate(x*GRID, y*GRID); ctx.rotate(-drawRot*Math.PI/2);
+  ctx.fillStyle=ink(col||'#e7ecf7'); ctx.font='12.5px monospace'; ctx.textAlign=align||'center'; ctx.textBaseline='middle';
+  ctx.fillText(txt, 0, 0); ctx.restore();
+}
+function textC(ctx,txt,x,y,font){ ctx.save(); ctx.translate(x*GRID,y*GRID); ctx.rotate(-drawRot*Math.PI/2); ctx.fillStyle=ink('#8b97b8'); ctx.font=font||'12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,0,0); ctx.restore(); }
 function gateBubble(ctx,x,y,r){ ctx.beginPath(); ar(ctx,x,y,r||0.18,0,Math.PI*2); ctx.stroke(); }
-function miniSign(ctx,x,y,ch){ ctx.fillStyle = ch==='+' ? '#ff8a8a' : '#7ab8ff'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ch,x*GRID,y*GRID); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
-function bigLabel(ctx,txt,x,y,col,align){ ctx.fillStyle=col||'#e7ecf7'; ctx.font='13px sans-serif'; ctx.textAlign=align||'left'; ctx.textBaseline='middle'; ctx.fillText(txt,x*GRID,y*GRID); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
+function miniSign(ctx,x,y,ch){ uprightAt(ctx,x,y,()=>{ ctx.fillStyle = ink(ch==='+' ? '#ff8a8a' : '#7ab8ff'); ctx.font='bold 12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ch,0,0); }); }
+function bigLabel(ctx,txt,x,y,col,align){ ctx.fillStyle=ink(col||'#e7ecf7'); ctx.font='13px sans-serif'; ctx.textAlign=align||'left'; ctx.textBaseline='middle'; ctx.fillText(txt,x*GRID,y*GRID); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
 function textWidthGrid(ctx,txt,font){ ctx.font = font||'13px sans-serif'; return ctx.measureText(txt).width/GRID; }
 // Annotation bboxes (selection outline, hit-test, drag ghost) are sized to the ACTUAL text content
 // instead of a fixed worst-case box, so short labels don't get an oversized highlight/hit area.
@@ -643,27 +654,28 @@ function getBBox(c){
   }
   return def.bbox;
 }
-function gateOutDot(ctx,x,y,sim){ if(!sim) return; ctx.fillStyle = sim.hi? '#3ddc97':'#3a4568'; ctx.beginPath(); ctx.arc(x*GRID+8,y*GRID,4,0,Math.PI*2); ctx.fill(); }
+function gateOutDot(ctx,x,y,sim){ if(!sim || exportInk) return; ctx.fillStyle = sim.hi? '#3ddc97':'#3a4568'; ctx.beginPath(); ctx.arc(x*GRID+8,y*GRID,4,0,Math.PI*2); ctx.fill(); }
 // shared source-symbol pieces: same circle glyph for DC and AC of each kind (voltage vs current) —
 // AC differs only in its value (phasor) and frequency, never in the icon.
 function sourceCircle(ctx){ line(ctx,0,0,0.35,0); line(ctx,1.65,0,2,0); ctx.beginPath(); ar(ctx,1,0,0.65,0,Math.PI*2); ctx.stroke(); }
+// + and − glyphs keep their screen orientation (a rotated − must stay horizontal, not turn into |)
+function uprightAt(ctx,x,y,fn){ ctx.save(); ctx.translate(x*GRID,y*GRID); ctx.rotate(-drawRot*Math.PI/2); fn(); ctx.restore(); }
 function plusMinus(ctx){
-  ctx.beginPath(); mv(ctx,0.6,0); lt(ctx,0.84,0); ctx.stroke();
-  ctx.beginPath(); mv(ctx,0.72,-0.12); lt(ctx,0.72,0.12); ctx.stroke();
-  ctx.beginPath(); mv(ctx,1.16,0); lt(ctx,1.4,0); ctx.stroke();
+  uprightAt(ctx,0.72,0,()=>{ ctx.beginPath(); mv(ctx,-0.12,0); lt(ctx,0.12,0); mv(ctx,0,-0.12); lt(ctx,0,0.12); ctx.stroke(); });
+  uprightAt(ctx,1.28,0,()=>{ ctx.beginPath(); mv(ctx,-0.12,0); lt(ctx,0.12,0); ctx.stroke(); });
 }
 function arrowGlyph(ctx){
   ctx.beginPath(); mv(ctx,1.32,0); lt(ctx,0.7,0); ctx.stroke();
-  ctx.beginPath(); mv(ctx,0.92,-0.16); lt(ctx,0.62,0); lt(ctx,0.92,0.16); ctx.closePath(); ctx.fillStyle='#e7ecf7'; ctx.fill();
+  ctx.beginPath(); mv(ctx,0.92,-0.16); lt(ctx,0.62,0); lt(ctx,0.92,0.16); ctx.closePath(); ctx.fillStyle=ink('#e7ecf7'); ctx.fill();
 }
 function fmtPhasor(amp, phaseDeg, form, unit){
   phaseDeg = phaseDeg||0;
   if(form==='rect'){
     const rad = phaseDeg*Math.PI/180;
     const re = amp*Math.cos(rad), im = amp*Math.sin(rad);
-    return re.toFixed(2)+(im>=0?'+j':'-j')+Math.abs(im).toFixed(2)+unit;
+    return nf(re,2)+(im>=0?'+j':'-j')+nf(Math.abs(im),2)+unit;
   }
-  return amp+unit+'∠'+phaseDeg+'°';
+  return nf(amp,3)+unit+'∠'+nf(phaseDeg,2)+'°';
 }
 
 /* ============================== PALETTE UI ============================== */
@@ -759,7 +771,7 @@ function render(){
     ctx.rotate(c.rot*Math.PI/2);
     ctx.strokeStyle = (selected && selected.kind==='comp' && selected.obj===c) ? '#4da3ff' : '#e7ecf7';
     ctx.fillStyle = '#e7ecf7'; ctx.lineWidth = 1.5; ctx.lineCap='round'; ctx.lineJoin='round';
-    def.draw(ctx, c, c.lastSim);
+    drawRot = c.rot; def.draw(ctx, c, c.lastSim); drawRot = 0;
     ctx.restore();
     if(selected && selected.kind==='comp' && selected.obj===c){
       ctx.save(); ctx.translate(c.gx*GRID,c.gy*GRID); ctx.rotate(c.rot*Math.PI/2);
@@ -1298,30 +1310,29 @@ function exportPNG(){
   octx.translate(-minX*GRID, -minY*GRID);
   // wires — bright neutral so they read clearly on a transparent background
   wires.forEach(wr=>{
-    octx.strokeStyle = '#dfe6f7'; octx.lineWidth = 2.4; octx.lineJoin='round'; octx.lineCap='round';
+    octx.strokeStyle = '#000000'; octx.lineWidth = 2.4; octx.lineJoin='round'; octx.lineCap='round';
     octx.beginPath();
     wr.pts.forEach((p,i)=>{ if(i===0) octx.moveTo(p.x*GRID,p.y*GRID); else octx.lineTo(p.x*GRID,p.y*GRID); });
     octx.stroke();
-    wr.pts.forEach(p=>{ octx.fillStyle='#dfe6f7'; octx.beginPath(); octx.arc(p.x*GRID,p.y*GRID,1.6,0,Math.PI*2); octx.fill(); });
+    wr.pts.forEach(p=>{ octx.fillStyle='#000000'; octx.beginPath(); octx.arc(p.x*GRID,p.y*GRID,1.6,0,Math.PI*2); octx.fill(); });
   });
-  // components — colored per type so the export reads as a schematic, not a monochrome silhouette
-  const EXPORT_COLORS = {
-    vsource:'#ffd54f', isource:'#ff8a65',
-    resistor:'#ce9178', capacitor:'#4fc3f7', inductor:'#ba68c8', potentiometer:'#a1887f',
-    switch:'#66bb6a', pushbutton:'#66bb6a', fuse:'#ef5350', ground:'#b0bec5',
-    voltmeter:'#42a5f5', ammeter:'#ffb74d',
-    and:'#ab47bc', or:'#ab47bc', not:'#ab47bc'
+  // components — coloured by category: sources blue, passives red, semiconductors dark yellow,
+  // switches dark green, meters violet, logic brown, annotations black
+  const CAT_EXPORT_COLORS = {
+    Sources:'#1565c0', Passive:'#c62828', Semiconductors:'#b8860b',
+    Switches:'#1b5e20', Meters:'#7b1fa2', Logic:'#6d4c41', Annotations:'#000000'
   };
-  const LED_COLORS = {red:'#ff5d6c',green:'#3ddc97',blue:'#4da3ff',yellow:'#ffd24d',white:'#f4f7ff'};
   components.forEach(c=>{
     const def = DEFS[c.type];
-    const col = c.type==='led' ? (LED_COLORS[c.props.color]||LED_COLORS.red) : (EXPORT_COLORS[c.type]||'#e7ecf7');
+    const col = CAT_EXPORT_COLORS[def.cat] || '#000000';
     octx.save();
     octx.translate(c.gx*GRID, c.gy*GRID);
     octx.rotate(c.rot*Math.PI/2);
     octx.strokeStyle = col;
     octx.fillStyle = col; octx.lineWidth = 1.5; octx.lineCap='round'; octx.lineJoin='round';
-    def.draw(octx, c, c.lastSim);
+    exportInk = col;
+    drawRot = c.rot;
+    try{ def.draw(octx, c, c.lastSim); } finally { exportInk = null; drawRot = 0; }
     octx.restore();
   });
   off.toBlob(blob=>{
@@ -1621,8 +1632,8 @@ function drawScope(){
     });
     sctx.stroke();
     sctx.fillStyle = buf.color; sctx.font='10px monospace'; sctx.textAlign='left';
-    sctx.fillText(buf.label+' (±'+maxV.toFixed(2)+')', 4, laneH*i + 11);
-    const li=document.createElement('span'); li.innerHTML=`<i style="background:${buf.color}"></i>${buf.label} (±${maxV.toFixed(2)})`;
+    sctx.fillText(buf.label+' (±'+nf(maxV,2)+')', 4, laneH*i + 11);
+    const li=document.createElement('span'); li.innerHTML=`<i style="background:${buf.color}"></i>${buf.label} (±${nf(maxV,2)})`;
     legend.appendChild(li);
   });
 }
@@ -1634,13 +1645,13 @@ function refreshReadouts(){
   if(!items.length){ box.innerHTML='<div class="empty-hint">Add a voltmeter, ammeter, LED, switch or fuse to see live readings here.</div>'; return; }
   box.innerHTML = items.map(c=>{
     let name=DEFS[c.type].label+' #'+c.id, val='—';
-    if(c.type==='voltmeter') val = c.lastSim? c.lastSim.value.toFixed(3)+' V' : '—';
+    if(c.type==='voltmeter') val = c.lastSim? nf(c.lastSim.value,3)+' V' : '—';
     if(c.type==='ammeter') val = c.lastSim? fmtI(c.lastSim.value) : '—';
     if(c.type==='led') val = c.lastSim? (c.lastSim.on? 'ON · '+fmtI(c.lastSim.current) : 'OFF') : '—';
     if(c.type==='switch') val = c.state.closed? 'CLOSED':'OPEN';
     if(c.type==='pushbutton') val = c.state.pressed? 'PRESSED':'RELEASED';
     if(c.type==='fuse') val = c.state.blown? 'BLOWN ⚠':'OK';
-    if(c.type==='isource') val = c.lastSim? fmtI(c.lastSim.current)+' · '+c.lastSim.voltage.toFixed(2)+'V' : '—';
+    if(c.type==='isource') val = c.lastSim? fmtI(c.lastSim.current)+' · '+nf(c.lastSim.voltage,2)+'V' : '—';
     return `<div class="ro-card"><div class="name">${name}</div><div class="val">${val}</div></div>`;
   }).join('');
 }
