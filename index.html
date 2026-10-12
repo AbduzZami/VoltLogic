@@ -467,7 +467,7 @@ const DEFS = {
       ctx.beginPath(); mv(ctx,0.5,-0.5); lt(ctx,1.2,-0.5);
       ar(ctx,1.2,1,1.5,-Math.PI/2,Math.PI/2); lt(ctx,0.5,2.5); ctx.closePath(); ctx.stroke();
       gateBubble(ctx,2.88,1,0.18);
-      textC(ctx,'NAND',1.3,1,'10px sans-serif');
+      textC(ctx,'NAND',1.3,1,'11px "Times New Roman",Times,serif');
       gateOutDot(ctx,3.3,1,sim);
       dot(ctx,0,0); dot(ctx,0,2); dot(ctx,3.3,1);
     }
@@ -486,7 +486,7 @@ const DEFS = {
       qc(ctx,0.55,1.2,0.15,-0.4);
       ctx.closePath(); ctx.stroke();
       gateBubble(ctx,2.9,1,0.18);
-      textC(ctx,'NOR',1.4,1,'11px sans-serif');
+      textC(ctx,'NOR',1.4,1,'12px "Times New Roman",Times,serif');
       gateOutDot(ctx,3.3,1,sim);
       dot(ctx,0,0); dot(ctx,0,2); dot(ctx,3.3,1);
     }
@@ -526,7 +526,7 @@ const DEFS = {
       qc(ctx,0.55,1.2,0.15,-0.4);
       ctx.closePath(); ctx.stroke();
       gateBubble(ctx,2.9,1,0.18);
-      textC(ctx,'XNOR',1.4,1,'10px sans-serif');
+      textC(ctx,'XNOR',1.4,1,'11px "Times New Roman",Times,serif');
       gateOutDot(ctx,3.3,1,sim);
       dot(ctx,-0.3,0); dot(ctx,-0.3,2); dot(ctx,3.3,1);
     }
@@ -613,26 +613,26 @@ function dot(ctx,x,y){ ctx.fillStyle=ink('#4da3ff'); ctx.beginPath(); ctx.arc(x*
 let drawRot = 0;
 function label(ctx,txt,x,y,col,align){
   ctx.save(); ctx.translate(x*GRID, y*GRID); ctx.rotate(-drawRot*Math.PI/2);
-  ctx.fillStyle=ink(col||'#e7ecf7'); ctx.font='12.5px monospace'; ctx.textAlign=align||'center'; ctx.textBaseline='middle';
+  ctx.fillStyle=ink(col||'#e7ecf7'); ctx.font='14px "Times New Roman",Times,serif'; ctx.textAlign=align||'center'; ctx.textBaseline='middle';
   ctx.fillText(txt, 0, 0); ctx.restore();
 }
-function textC(ctx,txt,x,y,font){ ctx.save(); ctx.translate(x*GRID,y*GRID); ctx.rotate(-drawRot*Math.PI/2); ctx.fillStyle=ink('#8b97b8'); ctx.font=font||'12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,0,0); ctx.restore(); }
+function textC(ctx,txt,x,y,font){ ctx.save(); ctx.translate(x*GRID,y*GRID); ctx.rotate(-drawRot*Math.PI/2); ctx.fillStyle=ink('#8b97b8'); ctx.font=font||'13px "Times New Roman",Times,serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,0,0); ctx.restore(); }
 function gateBubble(ctx,x,y,r){ ctx.beginPath(); ar(ctx,x,y,r||0.18,0,Math.PI*2); ctx.stroke(); }
-function miniSign(ctx,x,y,ch){ uprightAt(ctx,x,y,()=>{ ctx.fillStyle = ink(ch==='+' ? '#ff8a8a' : '#7ab8ff'); ctx.font='bold 12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ch,0,0); }); }
-function bigLabel(ctx,txt,x,y,col,align){ ctx.fillStyle=ink(col||'#e7ecf7'); ctx.font='13px sans-serif'; ctx.textAlign=align||'left'; ctx.textBaseline='middle'; ctx.fillText(txt,x*GRID,y*GRID); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
-function textWidthGrid(ctx,txt,font){ ctx.font = font||'13px sans-serif'; return ctx.measureText(txt).width/GRID; }
+function miniSign(ctx,x,y,ch){ uprightAt(ctx,x,y,()=>{ ctx.fillStyle = ink(ch==='+' ? '#ff8a8a' : '#7ab8ff'); ctx.font='bold 13px "Times New Roman",Times,serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(ch,0,0); }); }
+function bigLabel(ctx,txt,x,y,col,align){ ctx.fillStyle=ink(col||'#e7ecf7'); ctx.font='14px "Times New Roman",Times,serif'; ctx.textAlign=align||'left'; ctx.textBaseline='middle'; ctx.fillText(txt,x*GRID,y*GRID); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; }
+function textWidthGrid(ctx,txt,font){ ctx.font = font||'14px "Times New Roman",Times,serif'; return ctx.measureText(txt).width/GRID; }
 // Annotation bboxes (selection outline, hit-test, drag ghost) are sized to the ACTUAL text content
 // instead of a fixed worst-case box, so short labels don't get an oversized highlight/hit area.
 const _measureCtx = document.createElement('canvas').getContext('2d');
 function getBBox(c){
   const def = DEFS[c.type];
   if(c.type==='textlabel'){
-    _measureCtx.font='13px sans-serif';
+    _measureCtx.font='14px "Times New Roman",Times,serif';
     const w = _measureCtx.measureText(c.props.text||'Label').width/GRID;
     return {x0:-0.1, y0:-0.35, x1:w+0.1, y1:0.35};
   }
   if(c.type==='arrowlabel'){
-    _measureCtx.font='13px sans-serif';
+    _measureCtx.font='14px "Times New Roman",Times,serif';
     const shaftLen = 1.1;
     const rot = ((c.rot%4)+4)%4;
     const horizontal = (rot===0||rot===2);
@@ -641,7 +641,7 @@ function getBBox(c){
     return {x0:-0.1, y0:-0.2, x1:Math.max(shaftLen, 0.28+w)+0.1, y1:0.2};
   }
   if(c.type==='pmlabel'){
-    _measureCtx.font='13px sans-serif';
+    _measureCtx.font='14px "Times New Roman",Times,serif';
     const rot = ((c.rot%4)+4)%4;
     const horizontal = (rot===0||rot===2);
     const txt = c.props.text||'V1';
