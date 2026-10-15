@@ -68,6 +68,9 @@
   .dropdown-menu.open{display:block;}
   .dropdown-item{padding:9px 12px;font-size:12.5px;cursor:pointer;white-space:nowrap;color:var(--text);}
   .dropdown-item:hover{background:var(--accent);color:#06111f;}
+  .dropdown-sub{padding:9px 12px 4px;font-size:12.5px;color:var(--muted,#8b97b8);white-space:nowrap;border-top:1px solid var(--border);}
+  .png-scales{display:flex;gap:5px;padding:2px 12px 10px;}
+  .png-scales .btn{padding:4px 8px;font-size:12px;}
   .settings-menu{padding:10px 12px;min-width:260px;max-width:calc(100vw - 16px);box-sizing:border-box;}
   .set-row label{white-space:nowrap;}
   .set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0;font-size:12.5px;color:var(--text);}
@@ -111,7 +114,10 @@
       <button class="btn" id="btnExportMenu">⬇ Export ▾</button>
       <div class="dropdown-menu" id="exportMenu">
         <div class="dropdown-item" id="exportJsonItem">📄 Export as JSON</div>
-        <div class="dropdown-item" id="exportPngItem">🖼 Export as PNG</div>
+        <div class="dropdown-sub">🖼 Export as PNG</div>
+        <div class="png-scales" id="pngScales">
+          <button class="btn" data-scale="1">1x</button><button class="btn" data-scale="2">2x</button><button class="btn" data-scale="5">5x</button><button class="btn" data-scale="10">10x</button><button class="btn" data-scale="20">20x</button>
+        </div>
       </div>
     </div>
     <div class="dropdown-wrap" id="settingsWrap">
@@ -1334,7 +1340,9 @@ document.getElementById('btnExportMenu').onclick = (e)=>{
   menu.classList.toggle('open'); placeMenu(menu, e.currentTarget);
 };
 document.getElementById('exportJsonItem').onclick = ()=>{ exportJSON(); document.getElementById('exportMenu').classList.remove('open'); };
-document.getElementById('exportPngItem').onclick = ()=>{ exportPNG(); document.getElementById('exportMenu').classList.remove('open'); };
+document.querySelectorAll('#pngScales [data-scale]').forEach(b=>{
+  b.onclick = e=>{ e.stopPropagation(); exportPNG(+b.dataset.scale); document.getElementById('exportMenu').classList.remove('open'); };
+});
 window.addEventListener('click', ()=>{ document.getElementById('exportMenu').classList.remove('open'); document.getElementById('settingsMenu').classList.remove('open'); });
 (function settingsUI(){
   const menu = document.getElementById('settingsMenu'), fam = document.getElementById('setFontFamily'), size = document.getElementById('setFontSize');
@@ -1348,7 +1356,8 @@ window.addEventListener('click', ()=>{ document.getElementById('exportMenu').cla
   size.oninput = ()=>{ const v = Math.round(+size.value); if(v>=6 && v<=40){ fontSettings.size = v; save(); } };
   document.getElementById('setFontReset').onclick = ()=>{ fontSettings = {family:'Times New Roman', size:14}; save(); sync(); };
 })();
-function exportPNG(){
+function exportPNG(scale){
+  scale = scale || 1;
   if(components.length===0 && wires.length===0){ alert('Nothing to export — the canvas is empty.'); return; }
   let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
   components.forEach(c=>{
@@ -1376,9 +1385,18 @@ function exportPNG(){
   const w = Math.max(1,Math.round((maxX-minX)*GRID));
   const h = Math.max(1,Math.round((maxY-minY)*GRID));
   const off = document.createElement('canvas');
-  off.width = w; off.height = h;
+  // resolution multiplier: everything is vector-drawn, so rendering into a bigger canvas gives genuinely sharper output.
+  // Browsers cap canvas size (~16k px per side / ~250 MP total), so clamp the multiplier if the circuit is large.
+  const MAX_SIDE = 16384, MAX_AREA = 250e6;
+  let k = Math.min(scale, MAX_SIDE/w, MAX_SIDE/h, Math.sqrt(MAX_AREA/(w*h)));
+  const sm = document.getElementById('statusMsg');
+  if(sm) sm.textContent = k < scale
+    ? `PNG ${scale}x is too large for the browser at this circuit size — exported at ${nf(k,1)}x instead.`
+    : `Exported PNG at ${scale}x (${Math.round(w*k)}×${Math.round(h*k)} px).`;
+  off.width = Math.max(1,Math.round(w*k)); off.height = Math.max(1,Math.round(h*k));
   const octx = off.getContext('2d');
   // transparent background — no fillRect
+  octx.scale(k, k);
   octx.translate(-minX*GRID, -minY*GRID);
   // wires — bright neutral so they read clearly on a transparent background
   wires.forEach(wr=>{
@@ -1408,9 +1426,10 @@ function exportPNG(){
     octx.restore();
   });
   off.toBlob(blob=>{
+    if(!blob){ alert('The browser could not create an image this large — try a smaller resolution.'); return; }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'circuit.png';
+    a.download = `circuit_${scale}x.png`;
     a.click();
   });
 }
