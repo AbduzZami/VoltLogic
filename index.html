@@ -73,6 +73,8 @@
   .png-scales .btn{padding:4px 8px;font-size:12px;}
   .settings-menu{padding:10px 12px;min-width:260px;max-width:calc(100vw - 16px);box-sizing:border-box;}
   .set-row label{white-space:nowrap;}
+  .set-row input[type=checkbox]{width:auto;}
+  .set-sep{border-top:1px solid var(--border);margin:8px 0;}
   .set-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0;font-size:12.5px;color:var(--text);}
   .set-row select,.set-row input{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:4px 6px;font-size:12.5px;}
   .set-row input{width:64px;}
@@ -125,7 +127,12 @@
       <div class="dropdown-menu settings-menu" id="settingsMenu">
         <div class="set-row"><label for="setFontFamily">Font style</label><select id="setFontFamily"></select></div>
         <div class="set-row"><label for="setFontSize">Font size (px)</label><input type="number" id="setFontSize" min="6" max="40" step="1"></div>
-        <div class="set-row"><span></span><button class="btn" id="setFontReset">Reset</button></div>
+        <div class="set-row"><span></span><button class="btn" id="setFontReset">Reset font</button></div>
+        <div class="set-sep"></div>
+        <div class="set-row"><label for="setShowNames">Show names (E1, R1…)</label><input type="checkbox" id="setShowNames"></div>
+        <div class="set-row"><label for="setNaming">Naming</label><select id="setNaming"><option value="auto">Automatic</option><option value="manual">Manual</option></select></div>
+        <div class="set-row"><label for="setNumberSingles">Number single parts (E1 vs E)</label><input type="checkbox" id="setNumberSingles"></div>
+        <div class="set-row"><label for="setShowValues">Show values</label><input type="checkbox" id="setShowValues"></div>
       </div>
     </div>
     <button class="btn" id="btnImport" title="Import a circuit from a JSON file">⬆ Import</button>
@@ -283,14 +290,15 @@ const DEFS = {
   },
   resistor: {
     label:'Resistor', cat:'Passive', pins:[{name:'a',x:0,y:0},{name:'b',x:2,y:0}],
-    bbox:{x0:-0.3,y0:-0.6,x1:2.3,y1:0.6}, defaults:{resistance:220},
+    bbox:{x0:-0.3,y0:-0.45,x1:2.3,y1:0.45}, defaults:{resistance:220},
     draw(ctx,c){
-      line(ctx,0,0,0.4,0);
-      ctx.beginPath(); mv(ctx,0.4,0);
-      const pts=[[0.55,-0.35],[0.85,0.35],[1.15,-0.35],[1.45,0.35],[1.6,0]];
+      // compact zigzag: body spans x 0.5–1.5 with ±0.24 peaks (pins unchanged at 0 and 2)
+      line(ctx,0,0,0.5,0);
+      ctx.beginPath(); mv(ctx,0.5,0);
+      const pts=[[0.625,-0.24],[0.875,0.24],[1.125,-0.24],[1.375,0.24],[1.5,0]];
       pts.forEach(p=>lt(ctx,p[0],p[1])); ctx.stroke();
-      line(ctx,1.6,0,2,0);
-      label(ctx, fmtR(c.props.resistance), 1, -0.75,'#e7ecf7');
+      line(ctx,1.5,0,2,0);
+      label(ctx, fmtR(c.props.resistance), 1, -0.62,'#e7ecf7');
       dot(ctx,0,0); dot(ctx,2,0);
     }
   },
@@ -599,15 +607,20 @@ const DEFS = {
         bigLabel(ctx, str, 0, 0, color, align);
         ctx.restore();
       }
+      // rotation moves the + and − ends around (0°: +left, 90°: +top, 180°: +right, 270°: +bottom);
+      // the glyphs themselves always stay upright
+      const flip = (rot===2||rot===3);
+      const first = flip ? ['−','#7ab8ff'] : ['+','#ff8a8a'], last = flip ? ['+','#ff8a8a'] : ['−','#7ab8ff'];
       if(horizontal){
         let x = 0;
-        put('+', x, 0, '#ff8a8a', 'left'); x += textWidthGrid(ctx, '+ ');
+        put(first[0], x, 0, first[1], 'left'); x += textWidthGrid(ctx, first[0]+' ');
         put(txt, x, 0, col, 'left'); x += textWidthGrid(ctx, txt+' ');
-        put('−', x, 0, '#7ab8ff', 'left');
+        put(last[0], x, 0, last[1], 'left');
       } else {
-        put('+', 0, -0.4*LU, '#ff8a8a', 'center');
+        const step = 1.05*fontSettings.size/GRID;   // one text line apart, follows the font-size setting
+        put(first[0], 0, -step, first[1], 'center');
         put(txt, 0, 0, col, 'center');
-        put('−', 0, 0.4*LU, '#7ab8ff', 'center');
+        put(last[0], 0, step, last[1], 'center');
       }
     }
   }
@@ -634,17 +647,54 @@ let drawRot = 0;
 // LU converts label-sized distances (designed for 24px units) into grid units so annotations keep their old size.
 const LU = 24/GRID;
 let drawScale = 1;
-function label(ctx,txt,x,y,col,align){
+// value labels honour the "Show values" setting; names go through labelText directly
+function label(ctx,txt,x,y,col,align){ if(viewSettings.showValues) labelText(ctx,txt,x,y,col,align); }
+function labelText(ctx,txt,x,y,col,align){
   // keep text upright, and push it AWAY from the part: when the label's offset direction ends up horizontal on
   // screen (part rotated), anchor the text's near edge instead of its centre so it can't run back over the body.
-  const side = align==='left';                       // voltmeter-style label: offset along local +x
-  const s = rotPt(side ? {x:1,y:0} : {x:0,y:(y<0?-1:1)}, drawRot);
+  const side = align==='left' ? 1 : align==='right' ? -1 : 0;   // meter-style label: offset along local ±x
+  const s = rotPt(side ? {x:side,y:0} : {x:0,y:(y<0?-1:1)}, drawRot);
   let ax = x, ta = 'center';
   if(s.y===0) ta = s.x>0 ? 'left' : 'right';
-  else if(side) ax = Math.max(x, 1.0);               // stacked under/over a sideways meter: clear the circle
+  else if(side) ax = side>0 ? Math.max(x, 1.0) : Math.min(x, -1.0);   // stacked under/over a sideways meter: clear the circle
   ctx.save(); ctx.translate(ax*GRID, y*GRID); ctx.rotate(-drawRot*Math.PI/2); ctx.scale(1/drawScale,1/drawScale);
   ctx.fillStyle=ink(col||'#e7ecf7'); ctx.font=cfont(14); ctx.textAlign=ta; ctx.textBaseline='middle';
   ctx.fillText(txt, 0, 0); ctx.restore();
+}
+/* ---- element names (E1, R1, C2 …) ----
+   viewSettings: showNames / naming ('auto' | 'manual') / numberSingles / showValues — kept in this browser.
+   Auto: names are derived on the fly from creation order per prefix, so deleting R1 renumbers R2 -> R1.
+   Manual: each element stores its own c.name (editable in Properties); new parts get the next free number. */
+const NAME_PREFIX = { vsource:'E', isource:'I', resistor:'R', capacitor:'C', inductor:'L', potentiometer:'RV', led:'D',
+  switch:'S', pushbutton:'PB', fuse:'F', voltmeter:'VM', ammeter:'AM', and:'U', or:'U', not:'U', nand:'U', nor:'U', xor:'U', xnor:'U' };
+// where each element's name sits (local units) — the side opposite its value label
+const NAME_POS = { vsource:[1,1.05], isource:[1,1.05], resistor:[1,0.62], capacitor:[1,0.95], inductor:[1,0.6],
+  potentiometer:[1,1.35], led:[1,0.6], switch:[1,0.55], pushbutton:[1,0.85], fuse:[1,0.6],
+  voltmeter:[-0.7,1,'right'], ammeter:[1,-0.95],
+  and:[1.3,-0.9], or:[1.4,-0.9], nand:[1.3,-0.9], nor:[1.4,-0.9], xor:[1.4,-0.9], xnor:[1.4,-0.9], not:[1.5,-0.6] };
+let viewSettings = { showNames:true, naming:'auto', numberSingles:true, showValues:true };
+try{ const v = JSON.parse(localStorage.getItem('voltlogicView')||'null'); if(v) viewSettings = Object.assign(viewSettings, v); }catch(e){}
+function computeAutoNames(){
+  const byPrefix = {}, out = new Map();
+  components.slice().sort((a,b)=>a.id-b.id).forEach(c=>{ const p = NAME_PREFIX[c.type]; if(p) (byPrefix[p]=byPrefix[p]||[]).push(c); });
+  Object.entries(byPrefix).forEach(([p,list])=>list.forEach((c,i)=>out.set(c.id, (list.length===1 && !viewSettings.numberSingles) ? p : p+(i+1))));
+  return out;
+}
+let _autoNames = new Map();
+function nameOf(c){
+  if(!NAME_PREFIX[c.type]) return '';
+  if(viewSettings.naming==='manual' && c.name!=null) return c.name;
+  return _autoNames.get(c.id) || '';
+}
+function nextFreeName(type){
+  const p = NAME_PREFIX[type]; if(!p) return null;
+  let n = 0; components.forEach(c=>{ const m = (c.name||'').match(new RegExp('^'+p+'(\\d+)$')); if(m) n = Math.max(n, +m[1]); });
+  return p+(n+1);
+}
+function drawName(ctx, c){
+  if(!viewSettings.showNames) return;
+  const nm = nameOf(c), pos = NAME_POS[c.type]; if(!nm || !pos) return;
+  labelText(ctx, nm, pos[0], pos[1], '#ffd166', pos[2]);
 }
 function textC(ctx,txt,x,y,font){ ctx.save(); ctx.translate(x*GRID,y*GRID); ctx.rotate(-drawRot*Math.PI/2); ctx.fillStyle=ink('#8b97b8'); ctx.font=font||cfont(18); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(txt,0,0); ctx.restore(); }
 function gateBubble(ctx,x,y,r){ ctx.beginPath(); ar(ctx,x,y,r||0.18,0,Math.PI*2); ctx.stroke(); }
@@ -665,33 +715,41 @@ function textWidthGrid(ctx,txt,font){ ctx.font = font||cfont(14); return ctx.mea
 // Annotation bboxes (selection outline, hit-test, drag ghost) are sized to the ACTUAL text content
 // instead of a fixed worst-case box, so short labels don't get an oversized highlight/hit area.
 const _measureCtx = document.createElement('canvas').getContext('2d');
+// Annotation hit/selection boxes. The arrow and ± labels keep their text upright, so the text's footprint is fixed
+// in SCREEN space while the box is used in the label's rotated LOCAL space — build it in screen space, then rotate
+// it back by the label's rotation (90° steps keep it axis-aligned) so it always covers exactly what is drawn.
+function screenBoxToLocal(b, rot){
+  const r = invRot(rot);
+  const pts = [{x:b.x0,y:b.y0},{x:b.x1,y:b.y0},{x:b.x1,y:b.y1},{x:b.x0,y:b.y1}].map(p=>rotPt(p,r));
+  return { x0:Math.min(...pts.map(p=>p.x)), y0:Math.min(...pts.map(p=>p.y)), x1:Math.max(...pts.map(p=>p.x)), y1:Math.max(...pts.map(p=>p.y)) };
+}
 function getBBox(c){
   const def = DEFS[c.type];
-  if(c.type==='textlabel'){
-    _measureCtx.font=cfont(14);
-    const w = _measureCtx.measureText(c.props.text||'Label').width/GRID;
-    return {x0:-0.1*LU, y0:-0.35*LU, x1:w+0.1*LU, y1:0.35*LU};
+  if(def.cat!=='Annotations') return def.bbox;
+  _measureCtx.font=cfont(14);
+  const tw = t=>_measureCtx.measureText(t).width/GRID;
+  const h = 0.62*fontSettings.size/GRID;            // half text height in grid units (follows the font-size setting)
+  const pad = 0.08*LU;
+  const rot = ((c.rot%4)+4)%4;
+  if(c.type==='textlabel'){                          // glyphs rotate with the label, so a plain local box is right
+    return {x0:-pad, y0:-h-pad, x1:tw(c.props.text||'Label')+pad, y1:h+pad};
   }
   if(c.type==='arrowlabel'){
-    _measureCtx.font=cfont(14);
-    const shaftLen = 1.1*LU;
-    const rot = ((c.rot%4)+4)%4;
-    const horizontal = (rot===0||rot===2);
-    const w = _measureCtx.measureText(c.props.text||'Note').width/GRID;
-    if(horizontal) return {x0:-0.1*LU, y0:-0.6*LU, x1:Math.max(shaftLen, w)+0.1*LU, y1:0.2*LU};
-    return {x0:-0.1*LU, y0:-0.2*LU, x1:Math.max(shaftLen, 0.28*LU+w)+0.1*LU, y1:0.2*LU};
+    const shaftLen = 1.1*LU, horizontal = (rot===0||rot===2);
+    const tip = rotPt({x:shaftLen,y:0}, rot), mid = {x:tip.x/2, y:tip.y/2};
+    const head = 0.16*LU;
+    let x0=Math.min(0,tip.x)-head, x1=Math.max(0,tip.x)+head, y0=Math.min(0,tip.y)-head, y1=Math.max(0,tip.y)+head;
+    const w = tw(c.props.text||'Note');
+    if(horizontal){ const ax=mid.x, ay=mid.y-0.32*LU; x0=Math.min(x0,ax-w/2); x1=Math.max(x1,ax+w/2); y0=Math.min(y0,ay-h); y1=Math.max(y1,ay+h); }
+    else { const ax=mid.x+0.28*LU, ay=mid.y; x1=Math.max(x1,ax+w); y0=Math.min(y0,ay-h); y1=Math.max(y1,ay+h); }
+    return screenBoxToLocal({x0:x0-pad,y0:y0-pad,x1:x1+pad,y1:y1+pad}, rot);
   }
   if(c.type==='pmlabel'){
-    _measureCtx.font=cfont(14);
-    const rot = ((c.rot%4)+4)%4;
-    const horizontal = (rot===0||rot===2);
-    const txt = c.props.text||'V1';
-    if(horizontal){
-      const w = _measureCtx.measureText('+ '+txt+' −').width/GRID;
-      return {x0:-0.1*LU, y0:-0.35*LU, x1:w+0.1*LU, y1:0.35*LU};
-    }
-    const w = Math.max(_measureCtx.measureText('+').width, _measureCtx.measureText(txt).width, _measureCtx.measureText('−').width)/GRID;
-    return {x0:-w/2-0.1*LU, y0:-0.6*LU, x1:w/2+0.1*LU, y1:0.6*LU};
+    const txt = c.props.text||'V1', horizontal = (rot===0||rot===2);
+    let b;
+    if(horizontal) b = {x0:-pad, y0:-h-pad, x1:tw('+ ')+tw(txt+' ')+tw('−')+pad, y1:h+pad};
+    else { const w = Math.max(tw('+'),tw(txt),tw('−')); const step = 1.05*fontSettings.size/GRID; b = {x0:-w/2-pad, y0:-step-h-pad, x1:w/2+pad, y1:step+h+pad}; }
+    return screenBoxToLocal(b, rot);
   }
   return def.bbox;
 }
@@ -783,6 +841,7 @@ function drawGrid(){
 }
 
 function render(){
+  _autoNames = computeAutoNames();
   drawGrid();
   ctx.save();
   ctx.translate(view.offX, view.offY);
@@ -812,7 +871,7 @@ function render(){
     ctx.rotate(c.rot*Math.PI/2);
     ctx.strokeStyle = (selected && selected.kind==='comp' && selected.obj===c) ? '#4da3ff' : '#e7ecf7';
     ctx.fillStyle = '#e7ecf7'; ctx.lineWidth = 1.5; ctx.lineCap='round'; ctx.lineJoin='round';
-    drawRot = c.rot; def.draw(ctx, c, c.lastSim); drawRot = 0;
+    drawRot = c.rot; def.draw(ctx, c, c.lastSim); drawName(ctx, c); drawRot = 0;
     ctx.restore();
     if(selected && selected.kind==='comp' && selected.obj===c){
       ctx.save(); ctx.translate(c.gx*GRID,c.gy*GRID); ctx.rotate(c.rot*Math.PI/2);
@@ -1193,6 +1252,7 @@ function pasteClipboard(){
   const dx = 2*pasteCount, dy = 2*pasteCount; // cascade so successive pastes step diagonally away from the original
   const newComps = clipboard.comps.map(c=>{
     const nc = { id: nextId++, type:c.type, gx:c.gx+dx, gy:c.gy+dy, rot:c.rot, props:JSON.parse(JSON.stringify(c.props)), state:JSON.parse(JSON.stringify(c.state||{})) };
+    if(viewSettings.naming==='manual' && NAME_PREFIX[nc.type]) nc.name = nextFreeName(nc.type);
     components.push(nc);
     return nc;
   });
@@ -1257,6 +1317,7 @@ function addComponent(type, gx, gy){
   pushHistory();
   const def = DEFS[type];
   const c = { id: nextId++, type, gx, gy, rot:0, props: Object.assign({}, def.defaults), state: Object.assign({}, def.initState||{}) };
+  if(viewSettings.naming==='manual' && NAME_PREFIX[type]) c.name = nextFreeName(type);
   components.push(c);
   selected = {kind:'comp', obj:c};
   refreshRightPanel();
@@ -1355,9 +1416,26 @@ window.addEventListener('click', ()=>{ document.getElementById('exportMenu').cla
   fam.onchange = ()=>{ fontSettings.family = fam.value; save(); };
   size.oninput = ()=>{ const v = Math.round(+size.value); if(v>=6 && v<=40){ fontSettings.size = v; save(); } };
   document.getElementById('setFontReset').onclick = ()=>{ fontSettings = {family:'Times New Roman', size:14}; save(); sync(); };
+  const showN = document.getElementById('setShowNames'), naming = document.getElementById('setNaming'),
+        singles = document.getElementById('setNumberSingles'), showV = document.getElementById('setShowValues');
+  const syncV = ()=>{ showN.checked = viewSettings.showNames; naming.value = viewSettings.naming; singles.checked = viewSettings.numberSingles; showV.checked = viewSettings.showValues; singles.disabled = viewSettings.naming==='manual'; };
+  const saveV = ()=>{ try{ localStorage.setItem('voltlogicView', JSON.stringify(viewSettings)); }catch(e){} syncV(); refreshRightPanel(); };
+  syncV();
+  showN.onchange = ()=>{ viewSettings.showNames = showN.checked; saveV(); };
+  showV.onchange = ()=>{ viewSettings.showValues = showV.checked; saveV(); };
+  singles.onchange = ()=>{ viewSettings.numberSingles = singles.checked; saveV(); };
+  naming.onchange = ()=>{
+    if(naming.value==='manual'){
+      // freeze the current automatic names as each part's own editable name
+      const auto = computeAutoNames();
+      components.forEach(c=>{ if(NAME_PREFIX[c.type] && c.name==null) c.name = auto.get(c.id); });
+    }
+    viewSettings.naming = naming.value; saveV();
+  };
 })();
 function exportPNG(scale){
   scale = scale || 1;
+  _autoNames = computeAutoNames();
   if(components.length===0 && wires.length===0){ alert('Nothing to export — the canvas is empty.'); return; }
   let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
   components.forEach(c=>{
@@ -1422,7 +1500,7 @@ function exportPNG(scale){
     octx.fillStyle = col; octx.lineWidth = 1.5; octx.lineCap='round'; octx.lineJoin='round';
     exportInk = col;
     drawRot = c.rot;
-    try{ def.draw(octx, c, c.lastSim); } finally { exportInk = null; drawRot = 0; }
+    try{ def.draw(octx, c, c.lastSim); drawName(octx, c); } finally { exportInk = null; drawRot = 0; }
     octx.restore();
   });
   off.toBlob(blob=>{
@@ -1765,6 +1843,12 @@ function refreshRightPanel(){
   if(!selected || selected.kind!=='comp'){ panel.innerHTML='<div class="empty-hint">Select a component or wire on the canvas to edit or delete it, or drag a rectangle on empty space to select several at once.</div>'; return; }
   const c = selected.obj; const def = DEFS[c.type];
   let rows = `<div class="prop-row"><label>Type</label><b>${def.label}</b></div>`;
+  if(NAME_PREFIX[c.type]){
+    _autoNames = computeAutoNames();
+    rows += viewSettings.naming==='manual'
+      ? `<div class="prop-row"><label>Name</label><input type="text" data-k="__name" value="${(nameOf(c)||'').replace(/"/g,'&quot;')}" style="width:140px"></div>`
+      : `<div class="prop-row"><label>Name</label><b title="Automatic naming — switch to Manual in ⚙ Settings to edit">${nameOf(c)} <span style="opacity:.55;font-weight:400">(auto)</span></b></div>`;
+  }
   const fieldDefs = {
     resistance:['Resistance (Ω)','number'], capacitance:['Capacitance (µF)','number'], inductance:['Inductance (mH)','number'],
     rated:['Rated current (A)','number'], color:['Color','select-color'], wiper:['Wiper','range'], text:['Label text','text']
@@ -1825,6 +1909,7 @@ function refreshRightPanel(){
     inp.addEventListener('input', ()=>{
       armHistory(); // safety net if input changed programmatically without focus/mousedown firing first
       const k = inp.dataset.k;
+      if(k==='__name'){ c.name = inp.value; return; }
       if(isSourceType && k==='mode'){ c.props.mode = inp.value; refreshRightPanel(); return; }
       if(isSourceType && c.props.mode==='AC' && (k==='re' || k==='im')){
         // read the sibling field from the DOM (may not be committed to props yet) and convert rect -> polar
